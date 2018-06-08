@@ -1,19 +1,24 @@
 govalidator
 ===========
-[![Gitter](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/asaskevich/govalidator?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge) [![GoDoc](https://godoc.org/github.com/asaskevich/govalidator?status.png)](https://godoc.org/github.com/asaskevich/govalidator) [![Coverage Status](https://img.shields.io/coveralls/asaskevich/govalidator.svg)](https://coveralls.io/r/asaskevich/govalidator?branch=master) [![wercker status](https://app.wercker.com/status/1ec990b09ea86c910d5f08b0e02c6043/s "wercker status")](https://app.wercker.com/project/bykey/1ec990b09ea86c910d5f08b0e02c6043)
-[![Build Status](https://travis-ci.org/asaskevich/govalidator.svg?branch=master)](https://travis-ci.org/asaskevich/govalidator) [![Go Report Card](https://goreportcard.com/badge/github.com/asaskevich/govalidator)](https://goreportcard.com/report/github.com/asaskevich/govalidator) [![GoSearch](http://go-search.org/badge?id=github.com%2Fasaskevich%2Fgovalidator)](http://go-search.org/view?id=github.com%2Fasaskevich%2Fgovalidator) [![Backers on Open Collective](https://opencollective.com/govalidator/backers/badge.svg)](#backers) [![Sponsors on Open Collective](https://opencollective.com/govalidator/sponsors/badge.svg)](#sponsors) 
 
 A package of validators and sanitizers for strings, structs and collections. Based on [validator.js](https://github.com/chriso/validator.js).
 
+This is a fork of https://github.com/asaskevich/govalidator to alter the behavior slightly:
+
+- All validation errors are now returned instead of just the first one found.
+- `map[string]string` type used to collate all validation errors for easy JSON marshalling.
+
+Things the original repo already did well include:
+
+- Use of struct tags to define validations.
+- Allows `optional` validation where validations are only run if a field value is provided. If not provided, validation doesn't fail because it's an optional field. If `optional` is not applied then validation will fail if the field value isn't provided.
+
 #### Installation
+
 Make sure that Go is installed on your computer.
 Type the following command in your terminal:
 
-	go get github.com/asaskevich/govalidator
-
-or you can get specified release of the package with `gopkg.in`:
-
-	go get gopkg.in/asaskevich/govalidator.v4
+	go get github.com/michaeltelford/govalidator
 
 After it the package is ready to use.
 

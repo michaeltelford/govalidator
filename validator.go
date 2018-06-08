@@ -27,6 +27,7 @@ var (
 	notNumberRegexp         = regexp.MustCompile("[^0-9]+")
 	whiteSpacesAndMinus     = regexp.MustCompile("[\\s-]+")
 	paramsRegexp            = regexp.MustCompile("\\(.*\\)$")
+	errorsMap               = make(map[string][]string, 0)
 )
 
 const maxURLRuneCount = 2083
@@ -701,8 +702,8 @@ func toJSONName(tag string) string {
 	return name
 }
 
-// ValidateStruct use tags for fields.
-// result will be equal to `false` if there are any errors.
+// ValidateStruct uses field tags to validate.
+// Returns valid bool and error.
 func ValidateStruct(s interface{}) (bool, error) {
 	if s == nil {
 		return true, nil
@@ -736,7 +737,6 @@ func ValidateStruct(s interface{}) (bool, error) {
 		}
 		resultField, err2 := typeCheck(valueField, typeField, val, nil)
 		if err2 != nil {
-
 			// Replace structure name with JSON name if there is a tag on the variable
 			jsonTag := toJSONName(typeField.Tag.Get("json"))
 			if jsonTag != "" {
@@ -752,12 +752,14 @@ func ValidateStruct(s interface{}) (bool, error) {
 							jsonError[i2] = customErr
 						}
 					}
-
 					err2 = jsonError
 				}
 			}
 
 			errs = append(errs, err2)
+
+			// Add to the map of all validation errors in the struct.
+			appendErrorsMap(err2.Error())
 		}
 		result = result && resultField && structResult
 	}
@@ -765,6 +767,22 @@ func ValidateStruct(s interface{}) (bool, error) {
 		err = errs
 	}
 	return result, err
+}
+
+// ErrorsMap returns a map of all validation errors (you should first call
+// ValidateStruct).
+// The returned map is easily marshalled into a JSON string.
+func ErrorsMap() map[string]map[string][]string {
+	return map[string]map[string][]string{
+		"errors": errorsMap,
+	}
+}
+
+// appendErrorsMap adds an attribute error to the total errors map.
+func appendErrorsMap(err string) {
+	// TODO: Get attribute name here...
+	attr := `attribute`
+	errorsMap[attr] = append(errorsMap[attr], err)
 }
 
 // parseTagIntoMap parses a struct tag `valid:required~Some error message,length(2|3)` into map[string]string{"required": "Some error message", "length(2|3)": ""}
