@@ -165,8 +165,8 @@ Built-in validators with parameters:
 
 #### Validation Required
 
-Activate behavior to require all fields have a validation tag by default
-`SetFieldsRequiredByDefault` causes validation to fail when struct fields do not include validations or are not explicitly marked as exempt (using `valid:"-"` or `valid:"email,optional"`). A good place to activate this is a package `init()` function or the `main()` function. 
+Activate behavior to require all fields have a validation tag by default.
+`SetFieldsRequiredByDefault` causes validation to fail when struct fields do not include validations or are not explicitly marked as exempt (using `valid:"-"` or containing an `optional` tag e.g. `valid:"optional,email"`). This effectively applies the `valid:"required"` tag to all struct fields. A good place to activate this is a package `init()` function.
 
 For example:
 
@@ -196,7 +196,7 @@ type exampleStruct2 struct {
 // lastly, this will only fail when Email is an invalid email address but not when it's empty:
 type exampleStruct2 struct {
   Name  string `valid:"-"`
-  Email string `valid:"email,optional"`
+  Email string `valid:"optional,email"`
 }
 ```
 
@@ -211,11 +211,15 @@ type Ticket struct {
 }
 ```
 
+**Note**: Don't use colons (`:`) in your custom error messages as this affects the collection logic when working with all errors.
+
 ### Adding Custom Validators
 
 Custom validation using your own domain specific validator tags is also available, here's an example of how to use it:
 
 ```go
+package main
+
 import "github.com/michaeltelford/govalidator"
 
 type CustomByteArray [6]byte // custom types are supported and can be validated
@@ -226,18 +230,42 @@ type StructWithCustomByteArray struct {
   CustomMinLength int             `valid:"-"`
 }
 
-govalidator.CustomTypeTagMap.Set("customMinLengthValidator", CustomTypeValidator(func(i interface{}, context interface{}) bool {
+func init() {
+  govalidator.CustomTypeTagMap.Set("customMinLengthValidator", govalidator.CustomTypeValidator(func(i interface{}, context interface{}) bool {
   switch v := context.(type) { // this validates a field against the value in another field, i.e. dependent validation
   case StructWithCustomByteArray:
     return len(v.ID) >= v.CustomMinLength
   }
   return false
-}))
+  }))
+}
+
+func main() {
+  s := StructWithCustomByteArray{
+    ID:              CustomByteArray{1, 2, 3, 4, 5},
+    Email:           `mick.telford@gmail.com`,
+    CustomMinLength: 8,
+  }
+
+  valid, errs := govalidator.Validate(s)
+  if !valid {
+    json, _ := json.Marshal(errs)
+    fmt.Println(string(json))
+  } else {
+    fmt.Println(`valid`)
+  }
+}
 ```
 
 ### Validation Functions
 
-In addition to validation struct fields, you can validate single values as well using validation functions. It all works in the same way except there's no tag to link a field to a validator function.
+In addition to validation struct fields, you can validate single values as well using validation functions. It all works in the same way except there's no tag to link a field to a validator.
+
+Below is an example:
+
+```go
+isValid := govalidator.IsURL(`http://user@pass:domain.com/path/page`)
+```
 
 #### Built-in Validator Functions
 
@@ -353,64 +381,4 @@ func Truncate(str string, length int, ending string) string
 func UnderscoreToCamelCase(s string) string
 func ValidateStruct(s interface{}) (bool, error)
 func WhiteList(str, chars string) string
-type ConditionIterator
-type CustomTypeValidator
-type Error
-func (e Error) Error() string
-type Errors
-func (es Errors) Error() string
-func (es Errors) Errors() []error
-type ISO3166Entry
-type Iterator
-type ParamValidator
-type ResultIterator
-type UnsupportedTypeError
-func (e *UnsupportedTypeError) Error() string
-type Validator
-```
-
-#### Examples
-
-##### IsURL
-
-```go
-println(govalidator.IsURL(`http://user@pass:domain.com/path/page`))
-```
-
-##### Each, Map, Filter, Count for Slices
-
-Each iterates over the slice/array and calls Iterator for every item:
-
-```go
-data := []interface{}{1, 2, 3, 4, 5}
-var fn govalidator.Iterator = func(value interface{}, index int) {
-	println(value.(int))
-}
-govalidator.Each(data, fn)
-```
-
-```go
-data := []interface{}{1, 2, 3, 4, 5}
-var fn govalidator.ResultIterator = func(value interface{}, index int) interface{} {
-	return value.(int) * 3
-}
-_ = govalidator.Map(data, fn) // result = []interface{}{1, 6, 9, 12, 15}
-```
-
-```go
-data := []interface{}{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
-var fn govalidator.ConditionIterator = func(value interface{}, index int) bool {
-	return value.(int)%2 == 0
-}
-_ = govalidator.Filter(data, fn) // result = []interface{}{2, 4, 6, 8, 10}
-_ = govalidator.Count(data, fn) // result = 5
-```
-
-##### WhiteList
-
-Below is a whitelist character example. There is also a blacklist func as well.
-
-```go
-// Remove all characters from string ignoring characters between "a" and "z"
-println(govalidator.WhiteList("a3a43a5a4a3a2a23a4a5a4a3a4", "a-z") == "aaaaaaaaaaaa")
 ```

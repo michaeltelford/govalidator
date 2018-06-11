@@ -791,8 +791,14 @@ func allErrors() map[string]map[string][]string {
 
 func appendErrorsMap(attr string, err error) {
 	attr = toJSONName(attr)
-	errMsg := strings.Split(err.Error(), `:`)[1]
-	errorsMap[attr] = append(errorsMap[attr], strings.Trim(errMsg, ` `))
+	errMsg := err.Error()
+
+	segs := strings.Split(errMsg, `:`)
+	if len(segs) > 1 {
+		errMsg = strings.Trim(segs[1], ` `)
+	}
+
+	errorsMap[attr] = append(errorsMap[attr], errMsg)
 }
 
 func removeDuplicateErrors() {
@@ -1003,6 +1009,7 @@ func typeCheck(v reflect.Value, t reflect.StructField, o reflect.Value, options 
 	}
 
 	tag := t.Tag.Get(tagName)
+	jsonTag := t.Tag.Get(`json`)
 
 	// Check if the field should be ignored
 	switch tag {
@@ -1010,7 +1017,9 @@ func typeCheck(v reflect.Value, t reflect.StructField, o reflect.Value, options 
 		if !fieldsRequiredByDefault {
 			return true, nil
 		}
-		return false, Error{t.Name, fmt.Errorf("All fields are required to at least have one validation defined"), false, "required"}
+		e := Error{t.Name, fmt.Errorf("All fields are required to at least have one validation defined"), false, "required"}
+		appendErrorsMap(jsonTag, e.Err)
+		return false, e
 	case "-":
 		return true, nil
 	}
@@ -1022,7 +1031,7 @@ func typeCheck(v reflect.Value, t reflect.StructField, o reflect.Value, options 
 	}
 
 	if isEmptyValue(v) {
-		// an empty value is not validated, check only required tag validation.
+		// an empty value is not validated, check only `required` tag validation.
 		requiredValid, requiredError := checkRequired(v, t, options)
 		if !requiredValid && requiredError != nil {
 			validResult = false
@@ -1052,7 +1061,7 @@ func typeCheck(v reflect.Value, t reflect.StructField, o reflect.Value, options 
 				if firstErr == nil {
 					firstErr = customErr
 				}
-				appendErrorsMap(t.Tag.Get(`json`), customErr)
+				appendErrorsMap(jsonTag, customErr)
 			}
 		}
 		return false, customTypeErrors
@@ -1118,11 +1127,12 @@ func typeCheck(v reflect.Value, t reflect.StructField, o reflect.Value, options 
 					if result := validatefunc(field, ps[1:]...); (!result && !negate) || (result && negate) {
 						if customMsgExists {
 							validResult, err = false, Error{t.Name, fmt.Errorf(customErrorMessage), customMsgExists, stripParams(validatorSpec)}
+						} else {
+							validResult, err = false, Error{t.Name, fmt.Errorf("%s does not validate as %s", field, validator), customMsgExists, stripParams(validatorSpec)}
 						}
 						if negate {
 							validResult, err = false, Error{t.Name, fmt.Errorf("%s does validate as %s", field, validator), customMsgExists, stripParams(validatorSpec)}
 						}
-						validResult, err = false, Error{t.Name, fmt.Errorf("%s does not validate as %s", field, validator), customMsgExists, stripParams(validatorSpec)}
 					}
 				default:
 					// type not yet supported, fail
@@ -1139,11 +1149,12 @@ func typeCheck(v reflect.Value, t reflect.StructField, o reflect.Value, options 
 					if result := validatefunc(field); !result && !negate || result && negate {
 						if customMsgExists {
 							validResult, err = false, Error{t.Name, fmt.Errorf(customErrorMessage), customMsgExists, stripParams(validatorSpec)}
+						} else {
+							validResult, err = false, Error{t.Name, fmt.Errorf("%s does not validate as %s", field, validator), customMsgExists, stripParams(validatorSpec)}
 						}
 						if negate {
 							validResult, err = false, Error{t.Name, fmt.Errorf("%s does validate as %s", field, validator), customMsgExists, stripParams(validatorSpec)}
 						}
-						validResult, err = false, Error{t.Name, fmt.Errorf("%s does not validate as %s", field, validator), customMsgExists, stripParams(validatorSpec)}
 					}
 				default:
 					//Not Yet Supported Types (Fail here!)
@@ -1157,7 +1168,7 @@ func typeCheck(v reflect.Value, t reflect.StructField, o reflect.Value, options 
 				if firstErr == nil {
 					firstErr = err
 				}
-				appendErrorsMap(t.Tag.Get(`json`), err)
+				appendErrorsMap(jsonTag, err)
 			}
 		}
 
