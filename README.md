@@ -5,7 +5,6 @@ A package of validators and sanitizers for strings, structs and collections. Bas
 This is a fork of https://github.com/asaskevich/govalidator to alter the behavior slightly:
 
 - The new `Validate()` func returns all validation errors instead of just the first one found. The errors are returned in a map for easy JSON marshalling.
-- The existing `ValidateStruct()` func remains unchanged from the original repo.
 - Totally reworked the `README` to make it easier to understand the lib.
 
 Things the original repo already did well include:

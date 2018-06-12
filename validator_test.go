@@ -2,7 +2,6 @@ package govalidator
 
 import (
 	"encoding/json"
-	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -2317,30 +2316,6 @@ func TestFieldsRequiredByDefaultButExemptStruct(t *testing.T) {
 	SetFieldsRequiredByDefault(false)
 }
 
-func TestFieldsRequiredByDefaultButExemptOrOptionalStruct(t *testing.T) {
-	var tests = []struct {
-		param    FieldsRequiredByDefaultButExemptOrOptionalStruct
-		expected bool
-	}{
-		{FieldsRequiredByDefaultButExemptOrOptionalStruct{}, true},
-		{FieldsRequiredByDefaultButExemptOrOptionalStruct{Name: "TEST"}, true},
-		{FieldsRequiredByDefaultButExemptOrOptionalStruct{Email: ""}, true},
-		{FieldsRequiredByDefaultButExemptOrOptionalStruct{Email: "test@example.com"}, true},
-		{FieldsRequiredByDefaultButExemptOrOptionalStruct{Email: "test@example"}, false},
-	}
-	SetFieldsRequiredByDefault(true)
-	for _, test := range tests {
-		actual, err := ValidateStruct(test.param)
-		if actual != test.expected {
-			t.Errorf("Expected ValidateStruct(%q) to be %v, got %v", test.param, test.expected, actual)
-			if err != nil {
-				t.Errorf("Got Error on ValidateStruct(%q): %s", test.param, err)
-			}
-		}
-	}
-	SetFieldsRequiredByDefault(false)
-}
-
 // Person is used in TestValidate.
 type Person struct {
 	Name        string `valid:"optional,length(2|20),in(Mick|Michael)" json:"name,omitempty"`
@@ -2418,62 +2393,6 @@ type StructWithCustomByteArray struct {
 	ID              CustomByteArray `valid:"customByteArrayValidator,customMinLengthValidator"`
 	Email           string          `valid:"email"`
 	CustomMinLength int             `valid:"-"`
-}
-
-func TestStructWithCustomByteArray(t *testing.T) {
-	t.Parallel()
-
-	// add our custom byte array validator that fails when the byte array is pristine (all zeroes)
-	CustomTypeTagMap.Set("customByteArrayValidator", CustomTypeValidator(func(i interface{}, o interface{}) bool {
-		switch v := o.(type) {
-		case StructWithCustomByteArray:
-			if len(v.Email) > 0 {
-				if v.Email != "test@example.com" {
-					t.Errorf("v.Email should have been 'test@example.com' but was '%s'", v.Email)
-				}
-			}
-		default:
-			t.Errorf("Context object passed to custom validator should have been a StructWithCustomByteArray but was %T (%+v)", o, o)
-		}
-
-		switch v := i.(type) {
-		case CustomByteArray:
-			for _, e := range v { // check if v is empty, i.e. all zeroes
-				if e != 0 {
-					return true
-				}
-			}
-		}
-		return false
-	}))
-	CustomTypeTagMap.Set("customMinLengthValidator", CustomTypeValidator(func(i interface{}, o interface{}) bool {
-		switch v := o.(type) {
-		case StructWithCustomByteArray:
-			return len(v.ID) >= v.CustomMinLength
-		}
-		return false
-	}))
-	testCustomByteArray := CustomByteArray{'1', '2', '3', '4', '5', '6'}
-	var tests = []struct {
-		param    StructWithCustomByteArray
-		expected bool
-	}{
-		{StructWithCustomByteArray{}, false},
-		{StructWithCustomByteArray{Email: "test@example.com"}, false},
-		{StructWithCustomByteArray{ID: testCustomByteArray, Email: "test@example.com"}, true},
-		{StructWithCustomByteArray{ID: testCustomByteArray, Email: "test@example.com", CustomMinLength: 7}, false},
-	}
-	SetFieldsRequiredByDefault(true)
-	for _, test := range tests {
-		actual, err := ValidateStruct(test.param)
-		if actual != test.expected {
-			t.Errorf("Expected ValidateStruct(%q) to be %v, got %v", test.param, test.expected, actual)
-			if err != nil {
-				t.Errorf("Got Error on ValidateStruct(%q): %s", test.param, err)
-			}
-		}
-	}
-	SetFieldsRequiredByDefault(false)
 }
 
 func TestValidateNegationStruct(t *testing.T) {
@@ -2568,54 +2487,6 @@ func TestStringMatchesStruct(t *testing.T) {
 	}
 }
 
-func TestIsInStruct(t *testing.T) {
-	var tests = []struct {
-		param    interface{}
-		expected bool
-	}{
-		{IsInStruct{"PRESENT"}, true},
-		{IsInStruct{""}, true},
-		{IsInStruct{" "}, false},
-		{IsInStruct{"ABSENT"}, false},
-	}
-
-	for _, test := range tests {
-		actual, err := ValidateStruct(test.param)
-		if actual != test.expected {
-			t.Errorf("Expected ValidateStruct(%q) to be %v, got %v", test.param, test.expected, actual)
-			if err != nil {
-				t.Errorf("Got Error on ValidateStruct(%q): %s", test.param, err)
-			}
-		}
-	}
-}
-
-func TestRequiredIsInStruct(t *testing.T) {
-	type RequiredIsInStruct struct {
-		IsIn string `valid:"in(PRESENT|PRÉSENTE|NOTABSENT),required"`
-	}
-
-	var tests = []struct {
-		param    interface{}
-		expected bool
-	}{
-		{RequiredIsInStruct{"PRESENT"}, true},
-		{RequiredIsInStruct{""}, false},
-		{RequiredIsInStruct{" "}, false},
-		{RequiredIsInStruct{"ABSENT"}, false},
-	}
-
-	for _, test := range tests {
-		actual, err := ValidateStruct(test.param)
-		if actual != test.expected {
-			t.Errorf("Expected ValidateStruct(%q) to be %v, got %v", test.param, test.expected, actual)
-			if err != nil {
-				t.Errorf("Got Error on ValidateStruct(%q): %s", test.param, err)
-			}
-		}
-	}
-}
-
 func TestEmptyRequiredIsInStruct(t *testing.T) {
 	type EmptyRequiredIsInStruct struct {
 		IsIn string `valid:"in(),required"`
@@ -2693,162 +2564,11 @@ func TestFunkyIsInStruct(t *testing.T) {
 // 	}
 // }
 
-func TestValidateStruct(t *testing.T) {
-
-	var tests = []struct {
-		param    interface{}
-		expected bool
-	}{
-		{User{"John", "john@yahoo.com", "123G#678", 20, &Address{"Street", "123456"}, []Address{{"Street", "123456"}, {"Street", "123456"}}}, false},
-		{User{"John", "john!yahoo.com", "12345678", 20, &Address{"Street", "ABC456D89"}, []Address{{"Street", "ABC456D89"}, {"Street", "123456"}}}, false},
-		{User{"John", "", "12345", 0, &Address{"Street", "123456789"}, []Address{{"Street", "ABC456D89"}, {"Street", "123456"}}}, false},
-		{UserValid{"John", "john@yahoo.com", "123G#678", 20, &Address{"Street", "123456"}, []Address{{"Street", "123456"}, {"Street", "123456"}}}, true},
-		{UserValid{"John", "john!yahoo.com", "12345678", 20, &Address{"Street", "ABC456D89"}, []Address{}}, false},
-		{UserValid{"John", "john@yahoo.com", "12345678", 20, &Address{"Street", "123456xxx"}, []Address{{"Street", "123456"}, {"Street", "123456"}}}, false},
-		{UserValid{"John", "john!yahoo.com", "12345678", 20, &Address{"Street", "ABC456D89"}, []Address{{"Street", "ABC456D89"}, {"Street", "123456"}}}, false},
-		{UserValid{"John", "", "12345", 0, &Address{"Street", "123456789"}, []Address{{"Street", "ABC456D89"}, {"Street", "123456"}}}, false},
-		{nil, true},
-		{User{"John", "john@yahoo.com", "123G#678", 0, &Address{"Street", "123456"}, []Address{}}, false},
-		{"im not a struct", false},
-	}
-	for _, test := range tests {
-		actual, err := ValidateStruct(test.param)
-		if actual != test.expected {
-			t.Errorf("Expected ValidateStruct(%q) to be %v, got %v", test.param, test.expected, actual)
-			if err != nil {
-				t.Errorf("Got Error on ValidateStruct(%q): %s", test.param, err)
-			}
-		}
-	}
-
-	TagMap["d_k"] = Validator(func(str string) bool {
-		return str == "d_k"
-	})
-	result, err := ValidateStruct(PrivateStruct{"d_k", 0, []int{1, 2}, []string{"hi", "super"}, [2]Address{{"Street", "123456"},
-		{"Street", "123456"}}, Address{"Street", "123456"}, map[string]Address{"address": {"Street", "123456"}}})
-	if result != true {
-		t.Log("Case ", 6, ": expected ", true, " when result is ", result)
-		t.Error(err)
-		t.FailNow()
-	}
-}
-
 type testByteArray [8]byte
 type testByteMap map[byte]byte
 type testByteSlice []byte
 type testStringStringMap map[string]string
 type testStringIntMap map[string]int
-
-func TestRequired(t *testing.T) {
-
-	testString := "foobar"
-	var tests = []struct {
-		param    interface{}
-		expected bool
-	}{
-		{
-			struct {
-				Pointer *string `valid:"required"`
-			}{},
-			false,
-		},
-		{
-			struct {
-				Pointer *string `valid:"required"`
-			}{
-				Pointer: &testString,
-			},
-			true,
-		},
-		{
-			struct {
-				Addr Address `valid:"required"`
-			}{},
-			false,
-		},
-		{
-			struct {
-				Addr Address `valid:"required"`
-			}{
-				Addr: Address{"", "123"},
-			},
-			true,
-		},
-		{
-			struct {
-				Pointer *Address `valid:"required"`
-			}{},
-			false,
-		},
-		{
-			struct {
-				Pointer *Address `valid:"required"`
-			}{
-				Pointer: &Address{"", "123"},
-			},
-			true,
-		},
-		{
-			struct {
-				TestByteArray testByteArray `valid:"required"`
-			}{},
-			false,
-		},
-		{
-			struct {
-				TestByteArray testByteArray `valid:"required"`
-			}{
-				testByteArray{},
-			},
-			false,
-		},
-		{
-			struct {
-				TestByteArray testByteArray `valid:"required"`
-			}{
-				testByteArray{'1', '2', '3', '4', '5', '6', '7', 'A'},
-			},
-			true,
-		},
-		{
-			struct {
-				TestByteMap testByteMap `valid:"required"`
-			}{},
-			false,
-		},
-		{
-			struct {
-				TestByteSlice testByteSlice `valid:"required"`
-			}{},
-			false,
-		},
-		{
-			struct {
-				TestStringStringMap testStringStringMap `valid:"required"`
-			}{
-				testStringStringMap{"test": "test"},
-			},
-			true,
-		},
-		{
-			struct {
-				TestIntMap testStringIntMap `valid:"required"`
-			}{
-				testStringIntMap{"test": 42},
-			},
-			true,
-		},
-	}
-	for _, test := range tests {
-		actual, err := ValidateStruct(test.param)
-		if actual != test.expected {
-			t.Errorf("Expected ValidateStruct(%q) to be %v, got %v", test.param, test.expected, actual)
-			if err != nil {
-				t.Errorf("Got Error on ValidateStruct(%q): %s", test.param, err)
-			}
-		}
-	}
-}
 
 func TestErrorByField(t *testing.T) {
 	t.Parallel()
@@ -2865,134 +2585,6 @@ func TestErrorByField(t *testing.T) {
 	}
 	post := &Post{"My123", "duck13126", "123"}
 	_, err := ValidateStruct(post)
-
-	for _, test := range tests {
-		actual := ErrorByField(err, test.param)
-		if actual != test.expected {
-			t.Errorf("Expected ErrorByField(%q) to be %v, got %v", test.param, test.expected, actual)
-		}
-	}
-}
-
-func TestErrorsByField(t *testing.T) {
-	t.Parallel()
-
-	var tests = []struct {
-		param    string
-		expected string
-	}{
-		{"Title", "My123 does not validate as alpha"},
-		{"AuthorIP", "123 does not validate as ipv4"},
-	}
-	post := &Post{Title: "My123", Message: "duck13126", AuthorIP: "123"}
-	_, err := ValidateStruct(post)
-	errs := ErrorsByField(err)
-	if len(errs) != 2 {
-		t.Errorf("There should only be 2 errors but got %v", len(errs))
-	}
-
-	for _, test := range tests {
-		if actual, ok := errs[test.param]; !ok || actual != test.expected {
-			t.Errorf("Expected ErrorsByField(%q) to be %v, got %v", test.param, test.expected, actual)
-		}
-	}
-
-	tests = []struct {
-		param    string
-		expected string
-	}{
-		{"Title", ";:;message;:; does not validate as length(1|10)"},
-		{"Body", ";:;message;:; does not validate as length(1|10)"},
-	}
-
-	message := &MessageWithSeveralFieldsStruct{Title: ";:;message;:;", Body: ";:;message;:;"}
-	_, err = ValidateStruct(message)
-	errs = ErrorsByField(err)
-	if len(errs) != 2 {
-		t.Errorf("There should only be 2 errors but got %v", len(errs))
-	}
-
-	for _, test := range tests {
-		if actual, ok := errs[test.param]; !ok || actual != test.expected {
-			t.Errorf("Expected ErrorsByField(%q) to be %v, got %v", test.param, test.expected, actual)
-		}
-	}
-
-	tests = []struct {
-		param    string
-		expected string
-	}{
-		{"CustomField", "An error occurred"},
-	}
-
-	err = Error{"CustomField", fmt.Errorf("An error occurred"), false, "hello"}
-	errs = ErrorsByField(err)
-
-	if len(errs) != 1 {
-		t.Errorf("There should only be 1 errors but got %v", len(errs))
-	}
-
-	for _, test := range tests {
-		if actual, ok := errs[test.param]; !ok || actual != test.expected {
-			t.Errorf("Expected ErrorsByField(%q) to be %v, got %v", test.param, test.expected, actual)
-		}
-	}
-
-	type StructWithCustomValidation struct {
-		Email string `valid:"email"`
-		ID    string `valid:"falseValidation"`
-	}
-
-	CustomTypeTagMap.Set("falseValidation", CustomTypeValidator(func(i interface{}, o interface{}) bool {
-		return false
-	}))
-
-	tests = []struct {
-		param    string
-		expected string
-	}{
-		{"Email", "My123 does not validate as email"},
-		{"ID", "duck13126 does not validate as falseValidation"},
-	}
-	s := &StructWithCustomValidation{Email: "My123", ID: "duck13126"}
-	_, err = ValidateStruct(s)
-	errs = ErrorsByField(err)
-	if len(errs) != 2 {
-		t.Errorf("There should only be 2 errors but got %v", len(errs))
-	}
-
-	for _, test := range tests {
-		if actual, ok := errs[test.param]; !ok || actual != test.expected {
-			t.Errorf("Expected ErrorsByField(%q) to be %v, got %v", test.param, test.expected, actual)
-		}
-	}
-}
-
-func TestValidateStructPointers(t *testing.T) {
-	// Struct which uses pointers for values
-	type UserWithPointers struct {
-		Name         *string `valid:"-"`
-		Email        *string `valid:"email"`
-		FavoriteFood *string `valid:"length(0|32)"`
-		Nerd         *bool   `valid:"-"`
-	}
-
-	var tests = []struct {
-		param    string
-		expected string
-	}{
-		{"Name", ""},
-		{"Email", "invalid does not validate as email"},
-		{"FavoriteFood", ""},
-		{"Nerd", ""},
-	}
-
-	name := "Herman"
-	email := "invalid"
-	food := "Pizza"
-	nerd := true
-	user := &UserWithPointers{&name, &email, &food, &nerd}
-	_, err := ValidateStruct(user)
 
 	for _, test := range tests {
 		actual := ErrorByField(err, test.param)
@@ -3111,29 +2703,6 @@ func TestIsCIDR(t *testing.T) {
 	}
 }
 
-func TestOptionalCustomValidators(t *testing.T) {
-
-	CustomTypeTagMap.Set("f2", CustomTypeValidator(func(i interface{}, o interface{}) bool {
-		return false
-	}))
-
-	var val struct {
-		WithCustomError    string `valid:"f2~boom,optional"`
-		WithoutCustomError string `valid:"f2,optional"`
-		OptionalFirst      string `valid:"optional,f2"`
-	}
-
-	ok, err := ValidateStruct(val)
-
-	if err != nil {
-		t.Errorf("Expected nil err with optional validation, got %v", err)
-	}
-
-	if !ok {
-		t.Error("Expected validation to return true, got false")
-	}
-}
-
 func TestJSONValidator(t *testing.T) {
 
 	var val struct {
@@ -3165,73 +2734,6 @@ func TestJSONValidator(t *testing.T) {
 	if !Contains(err.Error(), "WithEmptyJSONName") {
 		t.Errorf("Expected error message to contain WithEmptyJSONName but actual error is: %s", err.Error())
 	}
-}
-
-func TestValidatorIncludedInError(t *testing.T) {
-	post := Post{
-		Title:    "",
-		Message:  "👍",
-		AuthorIP: "xyz",
-	}
-
-	validatorMap := map[string]string{
-		"Title":    "required",
-		"Message":  "ascii",
-		"AuthorIP": "ipv4",
-	}
-
-	ok, errors := ValidateStruct(post)
-	if ok {
-		t.Errorf("expected validation to fail %v", ok)
-	}
-
-	for _, e := range errors.(Errors) {
-		casted := e.(Error)
-		if validatorMap[casted.Name] != casted.Validator {
-			t.Errorf("expected validator for %s to be %s, but was %s", casted.Name, validatorMap[casted.Name], casted.Validator)
-		}
-	}
-
-	// check to make sure that validators with arguments (like length(1|10)) don't include the arguments
-	// in the validator name
-	message := MessageWithSeveralFieldsStruct{
-		Title: "",
-		Body:  "asdfasdfasdfasdfasdf",
-	}
-
-	validatorMap = map[string]string{
-		"Title": "length",
-		"Body":  "length",
-	}
-
-	ok, errors = ValidateStruct(message)
-	if ok {
-		t.Errorf("expected validation to fail, %v", ok)
-	}
-
-	for _, e := range errors.(Errors) {
-		casted := e.(Error)
-		if validatorMap[casted.Name] != casted.Validator {
-			t.Errorf("expected validator for %s to be %s, but was %s", casted.Name, validatorMap[casted.Name], casted.Validator)
-		}
-	}
-
-	// make sure validators with custom messages don't show up in the validator string
-	type CustomMessage struct {
-		Text string `valid:"length(1|10)~Custom message"`
-	}
-	cs := CustomMessage{Text: "asdfasdfasdfasdf"}
-
-	ok, errors = ValidateStruct(&cs)
-	if ok {
-		t.Errorf("expected validation to fail, %v", ok)
-	}
-
-	validator := errors.(Errors)[0].(Error).Validator
-	if validator != "length" {
-		t.Errorf("expected validator for Text to be length, but was %s", validator)
-	}
-
 }
 
 func TestIsRsaPublicKey(t *testing.T) {
