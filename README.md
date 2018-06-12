@@ -92,7 +92,19 @@ Things to note:
 
 ### Built-in Validators
 
-Here are the available built-in validators for use with struct fields:
+#### Validating Field Presence
+
+If you are validating when a struct field value is present (or not) you can use the following validators:
+
+| Tag             | Description |
+| --------------- | ----------- |
+| `required`      | A field must have a non zero value set. |
+| `optional`      | To be used with other validators (separated by a comma). Run all other validators if non zero, otherwise it's valid. |
+| `-`             | No validations are performed. |
+
+#### Validating Field Correctness
+
+If you are validating the correctness of a struct field value then you can use the following built-in `govalidator` functions:
 
 ```go
 "email":              IsEmail,
