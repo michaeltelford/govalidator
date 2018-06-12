@@ -1,6 +1,7 @@
 package govalidator
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"testing"
@@ -2338,6 +2339,33 @@ func TestFieldsRequiredByDefaultButExemptOrOptionalStruct(t *testing.T) {
 		}
 	}
 	SetFieldsRequiredByDefault(false)
+}
+
+// Person is used in TestValidate.
+type Person struct {
+	Name        string `valid:"optional,length(2|20),in(Mick|Michael)" json:"name,omitempty"`
+	Email       string `valid:"email~Not an email" json:"email,omitempty"`
+	Age         int    `json:"age,omitempty"`
+	HouseNumber int    `valid:"required,range(1|10)" json:"house_number"`
+}
+
+func TestValidate(t *testing.T) {
+	person := Person{
+		Name: `M`,
+		Age:  0,
+	}
+
+	valid, errs := Validate(person)
+	if valid || errs == nil {
+		t.Errorf(`Expected valid to be false but it's true`)
+	}
+
+	jsonBytes, _ := json.Marshal(errs)
+	actualJSON := string(jsonBytes)
+	expectedJSON := `{"errors":{"email":["Not an email"],"house_number":["non zero value required","0 does not validate as range(1|10)"],"name":["M does not validate as length(2|20)","M does not validate as in(Mick|Michael)"]}}`
+	if expectedJSON != actualJSON {
+		t.Errorf(`Validation errs assertion failed; expected: %s, actual: %s`, expectedJSON, actualJSON)
+	}
 }
 
 func TestInvalidValidator(t *testing.T) {

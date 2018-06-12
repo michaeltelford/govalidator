@@ -790,6 +790,10 @@ func allErrors() map[string]map[string][]string {
 }
 
 func appendErrorsMap(attr string, err error) {
+	if errorsMap == nil {
+		return
+	}
+
 	attr = toJSONName(attr)
 	errMsg := err.Error()
 
