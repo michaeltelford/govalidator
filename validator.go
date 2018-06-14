@@ -113,6 +113,14 @@ func IsURL(str string) bool {
 	return rxURL.MatchString(str)
 }
 
+func IsEmptyString(str string) bool {
+	return strings.Trim(str, ` `) == ``
+}
+
+func IsNonEmptyString(str string) bool {
+	return strings.Trim(str, ` `) != ``
+}
+
 // IsRequestURL check if the string rawurl, assuming
 // it was received in an HTTP request, is a valid
 // URL confirm to RFC 3986
@@ -822,6 +830,19 @@ func removeDuplicates(xs []string) []string {
 		}
 	}
 	return xs[:j]
+}
+
+// ConvertToInt returns an integer if conversion from string is possible.
+// Otherwise a map of errors is returned containing the 'attr' attribute.
+func ConvertToInt(intStr, attr string) (int, map[string]map[string][]string) {
+	if i, err := strconv.Atoi(intStr); err == nil {
+		errs := map[string][]string{}
+		errsMap := map[string]map[string][]string{"errors": errs}
+		return i, errsMap
+	}
+	errs := map[string][]string{attr: []string{`Not an integer`}}
+	errsMap := map[string]map[string][]string{"errors": errs}
+	return 0, errsMap
 }
 
 // parseTagIntoMap parses a struct tag `valid:required~Some error message,length(2|3)` into map[string]string{"required": "Some error message", "length(2|3)": ""}

@@ -74,6 +74,7 @@ var CustomTypeTagMap = &customTypeTagMap{validators: make(map[string]CustomTypeV
 
 // TagMap is a map of functions, that can be used as tags for ValidateStruct function.
 var TagMap = map[string]Validator{
+	"nonemptystring":     IsNonEmptyString,
 	"email":              IsEmail,
 	"url":                IsURL,
 	"dialstring":         IsDialString,

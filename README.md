@@ -98,15 +98,18 @@ If you are validating when a struct field value is present (or not) you can use 
 
 | Tag             | Description |
 | --------------- | ----------- |
-| `required`      | A field must have a non zero value set. |
-| `optional`      | To be used with other validators (separated by a comma). Run all other validators if non zero, otherwise it's valid. |
 | `-`             | No validations are performed. |
+| `optional`      | To be used with other validators (separated by a comma). Run all other validators if non zero, otherwise it's valid. |
+| `required`      | A field must have a non zero value set. |
+| `required,nonemptystring` | A field must have a non empty string value set. Whitespace is trimmed. |
+| `required,numeric` | A field must have a string value containing an integer. If valid, a string to int conversion will work. |
 
 #### Validating Field Correctness
 
 If you are validating the correctness of a struct field value then you can use the following built-in `govalidator` functions:
 
 ```go
+"nonemptystring":     IsNonEmptyString
 "email":              IsEmail,
 "url":                IsURL,
 "dialstring":         IsDialString,
@@ -278,9 +281,25 @@ Below is an example:
 isValid := govalidator.IsURL(`http://user@pass:domain.com/path/page`)
 ```
 
+Here is another which validates that a URL's ID field is a numeric value:
+
+```go
+var urlUserID string = ...
+id, errs := govalidator.ConvertToInt(urlUserID, `user_id`)
+if i < 1 {
+  jsonBytes, _ := json.Marshal(errs)
+  json := string(jsonBytes)
+  // Return 400 Bad Request with json of user_id error to user...
+}
+// Otherwise, use id (of type integer) as needed...
+```
+
 #### Built-in Validator Functions
 
 ```go
+func IsEmptyString(str string) bool
+func IsNonEmptyString(str string) bool
+func ConvertToInt(intStr, attr string) (int, map[string]map[string][]string)
 func Abs(value float64) float64
 func BlackList(str, chars string) string
 func ByteLength(str string, params ...string) bool

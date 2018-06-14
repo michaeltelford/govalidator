@@ -2324,7 +2324,7 @@ type Person struct {
 	HouseNumber int    `valid:"required,range(1|10)" json:"house_number"`
 }
 
-func TestValidate(t *testing.T) {
+func TestValidateFails(t *testing.T) {
 	person := Person{
 		Name: `M`,
 		Age:  0,
@@ -2338,6 +2338,159 @@ func TestValidate(t *testing.T) {
 	jsonBytes, _ := json.Marshal(errs)
 	actualJSON := string(jsonBytes)
 	expectedJSON := `{"errors":{"email":["Not an email"],"house_number":["non zero value required","0 does not validate as range(1|10)"],"name":["M does not validate as length(2|20)","M does not validate as in(Mick|Michael)"]}}`
+	if expectedJSON != actualJSON {
+		t.Errorf(`Validation errs assertion failed; expected: %s, actual: %s`, expectedJSON, actualJSON)
+	}
+}
+
+func TestValidatePasses(t *testing.T) {
+	person := Person{
+		Name:        `Mick`,
+		Email:       `mick@gmail.com`,
+		Age:         25,
+		HouseNumber: 5,
+	}
+
+	valid, errs := Validate(person)
+	if !valid || errs == nil {
+		t.Errorf(`Expected valid to be true but it's false`)
+	}
+
+	jsonBytes, _ := json.Marshal(errs)
+	actualJSON := string(jsonBytes)
+	expectedJSON := `{"errors":{}}`
+	if expectedJSON != actualJSON {
+		t.Errorf(`Validation errs assertion failed; expected: %s, actual: %s`, expectedJSON, actualJSON)
+	}
+}
+
+func TestEmptyString(t *testing.T) {
+	if !IsEmptyString(`  `) {
+		t.Errorf(`Expected empty string to be false (invalid)`)
+	}
+}
+
+func TestNonEmptyString(t *testing.T) {
+	if IsEmptyString(` hello `) {
+		t.Errorf(`Expected non empty string to be true (valid)`)
+	}
+}
+
+func TestNotEmptyString(t *testing.T) {
+	if IsNonEmptyString(`  `) {
+		t.Errorf(`Expected empty string to be false (invalid)`)
+	}
+}
+
+func TestNotNonEmptyString(t *testing.T) {
+	if !IsNonEmptyString(` hello `) {
+		t.Errorf(`Expected non empty string to be true (valid)`)
+	}
+}
+
+type WhiteSpace struct {
+	Message string `json:"message,omitempty" valid:"required,nonemptystring"`
+}
+
+func TestInvalidWhiteSpace(t *testing.T) {
+	s := WhiteSpace{
+		Message: `    `,
+	}
+
+	valid, errs := Validate(s)
+	if valid || errs == nil {
+		t.Errorf(`Expected valid to be false but it's true`)
+	}
+
+	jsonBytes, _ := json.Marshal(errs)
+	actualJSON := string(jsonBytes)
+	expectedJSON := `{"errors":{"message":["does not validate as nonemptystring"]}}`
+	if expectedJSON != actualJSON {
+		t.Errorf(`Validation errs assertion failed; expected: %s, actual: %s`, expectedJSON, actualJSON)
+	}
+}
+
+func TestValidWhiteSpace(t *testing.T) {
+	s := WhiteSpace{
+		Message: `  hello  `,
+	}
+
+	valid, errs := Validate(s)
+	if !valid || errs == nil {
+		t.Errorf(`Expected valid to be true but it's false`)
+	}
+
+	jsonBytes, _ := json.Marshal(errs)
+	actualJSON := string(jsonBytes)
+	expectedJSON := `{"errors":{}}`
+	if expectedJSON != actualJSON {
+		t.Errorf(`Validation errs assertion failed; expected: %s, actual: %s`, expectedJSON, actualJSON)
+	}
+}
+
+func TestConvertToIntPasses(t *testing.T) {
+	i, errs := ConvertToInt(`11`, `user_id`)
+	if i != 11 || errs == nil {
+		t.Errorf(`Expected i to be 11, it isn't`)
+	}
+
+	jsonBytes, _ := json.Marshal(errs)
+	actualJSON := string(jsonBytes)
+	expectedJSON := `{"errors":{}}`
+	if expectedJSON != actualJSON {
+		t.Errorf(`Validation errs assertion failed; expected: %s, actual: %s`, expectedJSON, actualJSON)
+	}
+}
+
+func TestConvertToIntFails(t *testing.T) {
+	i, errs := ConvertToInt(`hello`, `user_id`)
+	if i != 0 || errs == nil {
+		t.Errorf(`Expected conversion to fail but it didn't`)
+	}
+
+	jsonBytes, _ := json.Marshal(errs)
+	actualJSON := string(jsonBytes)
+	expectedJSON := `{"errors":{"user_id":["Not an integer"]}}`
+	if expectedJSON != actualJSON {
+		t.Errorf(`Validation errs assertion failed; expected: %s, actual: %s`, expectedJSON, actualJSON)
+	}
+}
+
+type Num struct {
+	Number string `json:"number,omitempty" valid:"required,numeric"`
+}
+
+func TestInvalidNumeric(t *testing.T) {
+	s := Num{
+		Number: `hello`,
+	}
+
+	valid, errs := Validate(s)
+	if valid || errs == nil {
+		t.Errorf(`Expected valid to be false but it's true`)
+	}
+
+	jsonBytes, _ := json.Marshal(errs)
+	actualJSON := string(jsonBytes)
+	expectedJSON := `{"errors":{"number":["hello does not validate as numeric"]}}`
+	if expectedJSON != actualJSON {
+		t.Errorf(`Validation errs assertion failed; expected: %s, actual: %s`, expectedJSON, actualJSON)
+	}
+}
+
+func TestValidNumeric(t *testing.T) {
+	s := Num{
+		Number: `1`,
+	}
+
+	valid, errs := Validate(s)
+	if !valid || errs == nil {
+		t.Errorf(`Expected valid to be false but it's true`)
+	}
+
+	jsonBytes, _ := json.Marshal(errs)
+	actualJSON := string(jsonBytes)
+	expectedJSON := `{"errors":{}}`
 	if expectedJSON != actualJSON {
 		t.Errorf(`Validation errs assertion failed; expected: %s, actual: %s`, expectedJSON, actualJSON)
 	}
