@@ -1010,6 +1010,7 @@ func IsIn(str string, params ...string) bool {
 	return false
 }
 
+// Process `required` and `optional` tags if present.
 func checkRequired(v reflect.Value, t reflect.StructField, options tagOptionsMap) (bool, error) {
 	if requiredOption, isRequired := options["required"]; isRequired {
 		if len(requiredOption) > 0 {
@@ -1020,6 +1021,17 @@ func checkRequired(v reflect.Value, t reflect.StructField, options tagOptionsMap
 		return false, Error{t.Name, fmt.Errorf("Missing required field"), false, "required"}
 	}
 	// not required and empty is valid
+	return true, nil
+}
+
+// Process `forbidden` tag if present.
+func checkForbidden(v reflect.Value, t reflect.StructField, options tagOptionsMap) (bool, error) {
+	if option, found := options[`forbidden`]; found {
+		if len(option) > 0 {
+			return false, Error{t.Name, fmt.Errorf(option), true, `forbidden`}
+		}
+		return false, Error{t.Name, fmt.Errorf(`Illegal attribute`), false, `forbidden`}
+	}
 	return true, nil
 }
 
@@ -1036,7 +1048,7 @@ func typeCheck(v reflect.Value, t reflect.StructField, o reflect.Value, options 
 	tag := t.Tag.Get(tagName)
 	jsonTag := t.Tag.Get(`json`)
 
-	// Check if the field should be ignored
+	// Check if the field should be ignored: `valid:""` or `valid:"-"` tags.
 	switch tag {
 	case "":
 		if !fieldsRequiredByDefault {
@@ -1055,13 +1067,25 @@ func typeCheck(v reflect.Value, t reflect.StructField, o reflect.Value, options 
 		options = parseTagIntoMap(tag)
 	}
 
+	// Presence validation; if the value is empty, process the `required`
+	// and `optional` tags otherwise process the `forbidden` tag.
 	if isEmptyValue(v) {
-		// an empty value is not validated, check only `required` tag validation.
-		requiredValid, requiredError := checkRequired(v, t, options)
-		if !requiredValid && requiredError != nil {
+		// Process `required` and `optional` tags.
+		if tempIsValid, tempError := checkRequired(v, t, options); !tempIsValid && tempError != nil {
 			validResult = false
-			err = requiredError
-			firstErr = requiredError
+			err = tempError
+			if firstErr == nil {
+				firstErr = err
+			}
+		}
+	} else {
+		// Process `forbidden` tag.
+		if tempIsValid, tempError := checkForbidden(v, t, options); !tempIsValid && tempError != nil {
+			validResult = false
+			err = tempError
+			if firstErr == nil {
+				firstErr = err
+			}
 		}
 	}
 
@@ -1097,6 +1121,7 @@ func typeCheck(v reflect.Value, t reflect.StructField, o reflect.Value, options 
 		defer func() {
 			delete(options, "optional")
 			delete(options, "required")
+			delete(options, "forbidden")
 
 			if isValid && resultErr == nil && len(options) != 0 {
 				for validator := range options {

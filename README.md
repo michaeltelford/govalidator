@@ -2,14 +2,15 @@
 
 A package of validators and sanitizers for strings, structs and collections. Based on [validator.js](https://github.com/chriso/validator.js).
 
-This is a fork of https://github.com/asaskevich/govalidator to alter the behavior slightly:
+This is a fork of https://github.com/asaskevich/govalidator to alter and extend the behavior:
 
-- The new `Validate()` func returns all validation errors instead of just the first one found. The errors are returned in a map for easy JSON marshalling.
-- Totally reworked the `README` to make it easier to understand the lib.
+- The new `Validate()` func returns all validation errors instead of just the first one found. The errors are returned in a `map` for easy JSON marshalling.
+- Added new validators such as `forbidden` etc.
+- Totally reworked the `README` to make it easier to use the lib.
 
 Things the original repo already did well include:
 
-- Use of `valid` struct tags to define validations.
+- Use of `valid` struct tags to define field validations.
 - Solid range of built in validators and the ability to create custom ones if required.
 - Allows `optional` (tag) validation where validations are only run if the struct field value provided is non zero; essentially validating the value's correctness, not it's presence. For zero values, validation doesn't fail; because it's an optional field.
 - Allows `required` (tag) validation where the struct field value provided must be non-zero based e.g. strings cannot be an empty string and integers cannot be zero etc.
@@ -26,7 +27,7 @@ Import into your `*.go` files with:
 import "github.com/michaeltelford/govalidator"
 ```
 
-## Usage
+## Basic Usage
 
 Below is an example `main.go` file validating a struct:
 
@@ -68,7 +69,7 @@ Run it via the command line with:
 
     $ go run main.go | jq
 
-Which produces the following JSON errors (which could be returned as a 400 Bad Request in an API etc.):
+Which produces the following JSON errors (which could be returned as a 400 Bad Request in an API response etc.):
 
 ```json
 {
@@ -88,21 +89,22 @@ Things to note:
 
 - Struct field `valid` tag contains list of comma separated validators.
 - `govalidator.Validate(struct)` performs validations on the given struct.
-- The returned `valid, errs` is of `bool, map` type for easy handling post validation.
+- The returned `valid, errs` is of `bool, map` types for easy handling post validation.
 
 ### Built-in Validators
 
 #### Validating Field Presence
 
-If you are validating when a struct field value is present (or not) you can use the following validators:
+If you are validating when a struct field value is present (or not present) you can use the following validators:
 
 | Tag             | Description |
 | --------------- | ----------- |
 | `-`             | No validations are performed. |
-| `optional`      | To be used with other validators (separated by a comma). Run all other validators if non zero, otherwise it's valid. |
+| `optional`      | To be used with other validators (separated by a comma e.g. `optional,email`). Run all other validators if value is non zero, otherwise it's valid. |
+| `forbidden` | A field must have a zero value set. |
 | `required`      | A field must have a non zero value set. |
 | `required,nonemptystring` | A field must have a non empty string value set. Whitespace is trimmed. |
-| `required,numeric` | A field must have a string value containing an integer. If valid, a string to int conversion will work. |
+| `required,numeric` | A field must have a string value containing an integer. If valid, a string to int conversion will succeed. |
 
 #### Validating Field Correctness
 
@@ -236,17 +238,17 @@ package main
 
 import "github.com/michaeltelford/govalidator"
 
-type CustomByteArray [6]byte // custom types are supported and can be validated
+type CustomByteArray [6]byte // Custom types are supported and can be validated.
 
 type StructWithCustomByteArray struct {
-  ID              CustomByteArray `valid:"customMinLengthValidator"` // custom tag.
+  ID              CustomByteArray `valid:"customMinLengthValidator"` // Custom tag.
   Email           string          `valid:"email"`
   CustomMinLength int             `valid:"-"`
 }
 
 func init() {
   govalidator.CustomTypeTagMap.Set("customMinLengthValidator", govalidator.CustomTypeValidator(func(i interface{}, context interface{}) bool {
-  switch v := context.(type) { // this validates a field against the value in another field, i.e. dependent validation
+  switch v := context.(type) { // This validates a field against the value in another field, i.e. dependent validation.
   case StructWithCustomByteArray:
     return len(v.ID) >= v.CustomMinLength
   }
@@ -273,7 +275,7 @@ func main() {
 
 ### Validation Functions
 
-In addition to validation struct fields, you can validate single values as well using validation functions. It all works in the same way except there's no tag to link a field to a validator.
+In addition to validating struct fields, you can validate single values as well using validation functions. It all works in the same way except there's no tag linking a field to a validator.
 
 Below is an example:
 
@@ -284,14 +286,12 @@ isValid := govalidator.IsURL(`http://user@pass:domain.com/path/page`)
 Here is another which validates that a URL's ID field is a numeric value:
 
 ```go
-var urlUserID string = ...
-id, errs := govalidator.ConvertToInt(urlUserID, `user_id`)
-if i < 1 {
-  jsonBytes, _ := json.Marshal(errs)
-  json := string(jsonBytes)
-  // Return 400 Bad Request with json of user_id error to user...
+// Pass in user ID string and attribute name (used in errs).
+id, errs := govalidator.ConvertToInt(userIDStr, `user_id`)
+if id < 1 { // id will be 0 if conversion fails.
+  // Invalid user ID, use errs map...
 }
-// Otherwise, use id (of type integer) as needed...
+// Conversion succeeded, use id (of type int) as needed...
 ```
 
 #### Built-in Validator Functions

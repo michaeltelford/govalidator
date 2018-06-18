@@ -2456,6 +2456,54 @@ func TestConvertToIntFails(t *testing.T) {
 	}
 }
 
+type House struct {
+	Number     int    `json:"number" valid:"required"`
+	Type       string `json:"type" valid:"required~Must be set"`
+	HouseID    int    `json:"house_id" valid:"forbidden"`
+	PropertyID int    `json:"property_id" valid:"forbidden~Not yet implemented"`
+}
+
+func TestForbiddenPasses(t *testing.T) {
+	house := House{
+		Number:     1029,
+		Type:       `Detached`,
+		PropertyID: 0,
+	}
+
+	valid, errs := Validate(house)
+	if !valid || errs == nil {
+		t.Errorf(`Expected valid to be true but it's false`)
+	}
+
+	jsonBytes, _ := json.Marshal(errs)
+	actualJSON := string(jsonBytes)
+	expectedJSON := `{"errors":{}}`
+	if expectedJSON != actualJSON {
+		t.Errorf(`Validation errs assertion failed; expected: %s, actual: %s`, expectedJSON, actualJSON)
+	}
+}
+
+func TestForbiddenFails(t *testing.T) {
+	house := House{
+		Number:     1029,
+		Type:       `Detached`,
+		HouseID:    1,
+		PropertyID: 7,
+	}
+
+	valid, errs := Validate(house)
+	if valid || errs == nil {
+		t.Errorf(`Expected valid to be false but it's true`)
+	}
+
+	jsonBytes, _ := json.Marshal(errs)
+	actualJSON := string(jsonBytes)
+	expectedJSON := `{"errors":{"house_id":["Illegal attribute"],"property_id":["Not yet implemented"]}}`
+	if expectedJSON != actualJSON {
+		t.Errorf(`Validation errs assertion failed; expected: %s, actual: %s`, expectedJSON, actualJSON)
+	}
+}
+
 type Num struct {
 	Number string `json:"number,omitempty" valid:"required,numeric"`
 }
