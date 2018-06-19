@@ -1077,6 +1077,11 @@ func typeCheck(v reflect.Value, t reflect.StructField, o reflect.Value, options 
 			if firstErr == nil {
 				firstErr = err
 			}
+		} else if _, isOptional := options["optional"]; tempIsValid && tempError == nil && isOptional {
+			// At this point, we know the value is empty and the optional tag
+			// is present so don't bother with other validators (which are
+			// only run if non zero value). Return valid=true.
+			return true, nil
 		}
 	} else {
 		// Process `forbidden` tag.

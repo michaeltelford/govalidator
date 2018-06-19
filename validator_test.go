@@ -2188,11 +2188,6 @@ type StringMatchesStruct struct {
 	StringMatches string `valid:"matches(^[0-9]{3}$)"`
 }
 
-// TODO: this testcase should be fixed
-// type StringMatchesComplexStruct struct {
-// 	StringMatches string `valid:"matches(^\\$\\([\"']\\w+[\"']\\)$)"`
-// }
-
 type IsInStruct struct {
 	IsIn string `valid:"in(PRESENT|PRÉSENTE|NOTABSENT)"`
 }
@@ -2539,6 +2534,51 @@ func TestValidNumeric(t *testing.T) {
 	jsonBytes, _ := json.Marshal(errs)
 	actualJSON := string(jsonBytes)
 	expectedJSON := `{"errors":{}}`
+	if expectedJSON != actualJSON {
+		t.Errorf(`Validation errs assertion failed; expected: %s, actual: %s`, expectedJSON, actualJSON)
+	}
+}
+
+func TestOptionalPasses(t *testing.T) {
+	type person struct {
+		ID   int    `json:"id" valid:"required"`
+		Name string `json:"name" valid:"optional,nonemptystring"`
+	}
+
+	p := person{ID: 1}
+
+	valid, errs := Validate(p)
+	if !valid || errs == nil {
+		t.Errorf(`Expected valid to be true but it's false`)
+	}
+
+	jsonBytes, _ := json.Marshal(errs)
+	actualJSON := string(jsonBytes)
+	expectedJSON := `{"errors":{}}`
+	if expectedJSON != actualJSON {
+		t.Errorf(`Validation errs assertion failed; expected: %s, actual: %s`, expectedJSON, actualJSON)
+	}
+}
+
+func TestOptionalFails(t *testing.T) {
+	type person struct {
+		ID   int    `json:"id" valid:"required"`
+		Name string `json:"name" valid:"optional,nonemptystring"`
+	}
+
+	p := person{
+		ID:   1,
+		Name: `   `,
+	}
+
+	valid, errs := Validate(p)
+	if valid || errs == nil {
+		t.Errorf(`Expected valid to be false but it's true`)
+	}
+
+	jsonBytes, _ := json.Marshal(errs)
+	actualJSON := string(jsonBytes)
+	expectedJSON := `{"errors":{"name":["does not validate as nonemptystring"]}}`
 	if expectedJSON != actualJSON {
 		t.Errorf(`Validation errs assertion failed; expected: %s, actual: %s`, expectedJSON, actualJSON)
 	}
