@@ -1,6 +1,6 @@
 # govalidator
 
-A package of validators and sanitizers for strings, structs and collections. Based on [validator.js](https://github.com/chriso/validator.js).
+A package of validators and sanitizers for strings, structs and collections. Based on [validator.js](https://github.com/chriso/validator.js). Perfect for API's.
 
 This is a fork of https://github.com/asaskevich/govalidator to alter and extend the behavior:
 
@@ -10,9 +10,8 @@ This is a fork of https://github.com/asaskevich/govalidator to alter and extend 
 
 Things the original repo already did well include:
 
-- Use of `valid` struct tags to define field validations.
+- Use of `valid:""` struct tags to define field validations.
 - Solid range of built in validators and the ability to create custom ones if required.
-- Allows `optional` (tag) validation where validations are only run if the struct field value provided is non zero; essentially validating the value's correctness, not it's presence. For zero values, validation doesn't fail; because it's an optional field.
 - Allows `required` (tag) validation where the struct field value provided must be non-zero based e.g. strings cannot be an empty string and integers cannot be zero etc.
 
 ## Installation
@@ -102,13 +101,21 @@ If you are validating when a struct field value is present (or not present) you 
 | `-`             | No validations are performed. |
 | `optional`      | To be used with other validators (separated by a comma e.g. `optional,email`). Run all other validators if value is non zero, otherwise it's valid. |
 | `forbidden` | A field must have a zero value set. |
-| `required`      | A field must have a non zero value set. |
-| `required,nonemptystring` | A field must have a non empty string value set. Whitespace is trimmed. |
-| `required,numeric` | A field must have a string value containing an integer. If valid, a string to int conversion will succeed. |
+| `required`      | A field must have a non zero value set. Note that `required` isn't needed with other validators that inheritantly validate a value's presence e.g. `nonemptystring`. Omitting `required` in these cases reduces the number of error messages. |
+
+#### Validating String Values
+
+If you are validating a `string` struct field's value then below are some (not all) of the most common validators:
+
+| Tag             | Description |
+| --------------- | ----------- |
+| `nonemptystring` | A field must have a non empty string value set. Whitespace is trimmed. |
+| `numeric` | A field must have a string value containing an integer. If valid, a string to int conversion will succeed. |
+| `boolean` | A field must have a string value containing a boolean. If valid, a string to boolean conversion will succeed. |
 
 #### Validating Field Correctness
 
-If you are validating the correctness of a struct field value then you can use the following built-in `govalidator` functions:
+Below is the full list of built-in validator tags for validating the  correctness of a struct field value; multiple field types are supported:
 
 ```go
 "nonemptystring":     IsNonEmptyString
@@ -122,6 +129,7 @@ If you are validating the correctness of a struct field value then you can use t
 "alphanum":           IsAlphanumeric,
 "utfletternum":       IsUTFLetterNumeric,
 "numeric":            IsNumeric,
+"boolean":            IsBoolean,
 "utfnumeric":         IsUTFNumeric,
 "utfdigit":           IsUTFDigit,
 "hexadecimal":        IsHexadecimal,
@@ -297,9 +305,8 @@ if id < 1 { // id will be 0 if conversion fails.
 #### Built-in Validator Functions
 
 ```go
-func IsEmptyString(str string) bool
-func IsNonEmptyString(str string) bool
-func ConvertToInt(intStr, attr string) (int, map[string]map[string][]string)
+func ConvertToInt(str, attr string) (int, map[string]map[string][]string)
+func ConvertToBool(str, attr string) (bool, map[string]map[string][]string, error)
 func Abs(value float64) float64
 func BlackList(str, chars string) string
 func ByteLength(str string, params ...string) bool
@@ -318,6 +325,7 @@ func IsASCII(str string) bool
 func IsAlpha(str string) bool
 func IsAlphanumeric(str string) bool
 func IsBase64(str string) bool
+func IsBoolean(str string) bool
 func IsByteLength(str string, min, max int) bool
 func IsCIDR(str string) bool
 func IsCreditCard(str string) bool
@@ -326,6 +334,8 @@ func IsDataURI(str string) bool
 func IsDialString(str string) bool
 func IsDivisibleBy(str, num string) bool
 func IsEmail(str string) bool
+func IsEmptyString(str string) bool
+func IsNonEmptyString(str string) bool
 func IsFilePath(str string) (bool, int)
 func IsFloat(str string) bool
 func IsFullWidth(str string) bool
@@ -409,6 +419,5 @@ func ToString(obj interface{}) string
 func Trim(str, chars string) string
 func Truncate(str string, length int, ending string) string
 func UnderscoreToCamelCase(s string) string
-func ValidateStruct(s interface{}) (bool, error)
 func WhiteList(str, chars string) string
 ```
