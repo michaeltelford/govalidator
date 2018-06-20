@@ -113,12 +113,22 @@ func IsURL(str string) bool {
 	return rxURL.MatchString(str)
 }
 
+// IsEmptyString returns true if empty.
 func IsEmptyString(str string) bool {
 	return strings.Trim(str, ` `) == ``
 }
 
+// IsNonEmptyString returns false if empty.
 func IsNonEmptyString(str string) bool {
 	return strings.Trim(str, ` `) != ``
+}
+
+// IsBoolean returns true if value can be converted to boolean.
+func IsBoolean(str string) bool {
+	if _, err := ToBoolean(str); err != nil {
+		return false
+	}
+	return true
 }
 
 // IsRequestURL check if the string rawurl, assuming

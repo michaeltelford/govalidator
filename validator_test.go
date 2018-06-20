@@ -2387,7 +2387,7 @@ type WhiteSpace struct {
 	Message string `json:"message,omitempty" valid:"required,nonemptystring"`
 }
 
-func TestInvalidWhiteSpace(t *testing.T) {
+func TestWhiteSpaceFails(t *testing.T) {
 	s := WhiteSpace{
 		Message: `    `,
 	}
@@ -2405,7 +2405,7 @@ func TestInvalidWhiteSpace(t *testing.T) {
 	}
 }
 
-func TestValidWhiteSpace(t *testing.T) {
+func TestWhiteSpacePasses(t *testing.T) {
 	s := WhiteSpace{
 		Message: `  hello  `,
 	}
@@ -2418,6 +2418,60 @@ func TestValidWhiteSpace(t *testing.T) {
 	jsonBytes, _ := json.Marshal(errs)
 	actualJSON := string(jsonBytes)
 	expectedJSON := `{"errors":{}}`
+	if expectedJSON != actualJSON {
+		t.Errorf(`Validation errs assertion failed; expected: %s, actual: %s`, expectedJSON, actualJSON)
+	}
+}
+
+func TestBooleanPasses(t *testing.T) {
+	type User struct {
+		Name    string `json:"name" valid:"required"`
+		IsAdmin string `json:"is_admin" valid:"boolean"`
+	}
+	u := User{"Mick", "true"}
+
+	valid, errs := Validate(u)
+	if !valid || errs == nil {
+		t.Errorf(`Expected valid to be true but it's false`)
+	}
+
+	jsonBytes, _ := json.Marshal(errs)
+	actualJSON := string(jsonBytes)
+	expectedJSON := `{"errors":{}}`
+	if expectedJSON != actualJSON {
+		t.Errorf(`Validation errs assertion failed; expected: %s, actual: %s`, expectedJSON, actualJSON)
+	}
+
+	u = User{"Mick", "false"}
+
+	valid, errs = Validate(u)
+	if !valid || errs == nil {
+		t.Errorf(`Expected valid to be true but it's false`)
+	}
+
+	jsonBytes, _ = json.Marshal(errs)
+	actualJSON = string(jsonBytes)
+	expectedJSON = `{"errors":{}}`
+	if expectedJSON != actualJSON {
+		t.Errorf(`Validation errs assertion failed; expected: %s, actual: %s`, expectedJSON, actualJSON)
+	}
+}
+
+func TestBooleanFails(t *testing.T) {
+	type User struct {
+		Name    string `json:"name" valid:"required"`
+		IsAdmin string `json:"is_admin" valid:"boolean"`
+	}
+	u := User{"Mick", "hello"}
+
+	valid, errs := Validate(u)
+	if valid || errs == nil {
+		t.Errorf(`Expected valid to be false`)
+	}
+
+	jsonBytes, _ := json.Marshal(errs)
+	actualJSON := string(jsonBytes)
+	expectedJSON := `{"errors":{"is_admin":["hello does not validate as boolean"]}}`
 	if expectedJSON != actualJSON {
 		t.Errorf(`Validation errs assertion failed; expected: %s, actual: %s`, expectedJSON, actualJSON)
 	}
