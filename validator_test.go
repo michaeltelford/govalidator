@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func init() {
@@ -2153,9 +2155,7 @@ func TestCustomErrorMessageWithColon(t *testing.T) {
 	jsonBytes, _ := json.Marshal(errs)
 	actualJSON := string(jsonBytes)
 	expectedJSON := `{"errors":{"name":["Error: No value found"]}}`
-	if expectedJSON != actualJSON {
-		t.Errorf(`Validation errs assertion failed; expected: %s, actual: %s`, expectedJSON, actualJSON)
-	}
+	assert.JSONEq(t, expectedJSON, actualJSON)
 }
 
 type Address struct {
@@ -2353,9 +2353,7 @@ func TestValidateFails(t *testing.T) {
 	jsonBytes, _ := json.Marshal(errs)
 	actualJSON := string(jsonBytes)
 	expectedJSON := `{"errors":{"email":["Not an email"],"house_number":["non zero value required","0 does not validate as range(1|10)"],"name":["M does not validate as length(2|20)","M does not validate as in(Mick|Michael)"]}}`
-	if expectedJSON != actualJSON {
-		t.Errorf(`Validation errs assertion failed; expected: %s, actual: %s`, expectedJSON, actualJSON)
-	}
+	assert.JSONEq(t, expectedJSON, actualJSON)
 }
 
 func TestValidatePasses(t *testing.T) {
@@ -2374,9 +2372,7 @@ func TestValidatePasses(t *testing.T) {
 	jsonBytes, _ := json.Marshal(errs)
 	actualJSON := string(jsonBytes)
 	expectedJSON := `{"errors":{}}`
-	if expectedJSON != actualJSON {
-		t.Errorf(`Validation errs assertion failed; expected: %s, actual: %s`, expectedJSON, actualJSON)
-	}
+	assert.JSONEq(t, expectedJSON, actualJSON)
 }
 
 func TestEmptyString(t *testing.T) {
@@ -2420,9 +2416,7 @@ func TestWhiteSpaceFails(t *testing.T) {
 	jsonBytes, _ := json.Marshal(errs)
 	actualJSON := string(jsonBytes)
 	expectedJSON := `{"errors":{"message":["does not validate as nonemptystring"]}}`
-	if expectedJSON != actualJSON {
-		t.Errorf(`Validation errs assertion failed; expected: %s, actual: %s`, expectedJSON, actualJSON)
-	}
+	assert.JSONEq(t, expectedJSON, actualJSON)
 }
 
 func TestWhiteSpacePasses(t *testing.T) {
@@ -2438,9 +2432,7 @@ func TestWhiteSpacePasses(t *testing.T) {
 	jsonBytes, _ := json.Marshal(errs)
 	actualJSON := string(jsonBytes)
 	expectedJSON := `{"errors":{}}`
-	if expectedJSON != actualJSON {
-		t.Errorf(`Validation errs assertion failed; expected: %s, actual: %s`, expectedJSON, actualJSON)
-	}
+	assert.JSONEq(t, expectedJSON, actualJSON)
 }
 
 func TestBooleanPasses(t *testing.T) {
@@ -2458,9 +2450,7 @@ func TestBooleanPasses(t *testing.T) {
 	jsonBytes, _ := json.Marshal(errs)
 	actualJSON := string(jsonBytes)
 	expectedJSON := `{"errors":{}}`
-	if expectedJSON != actualJSON {
-		t.Errorf(`Validation errs assertion failed; expected: %s, actual: %s`, expectedJSON, actualJSON)
-	}
+	assert.JSONEq(t, expectedJSON, actualJSON)
 
 	u = User{"Mick", "false"}
 
@@ -2472,9 +2462,7 @@ func TestBooleanPasses(t *testing.T) {
 	jsonBytes, _ = json.Marshal(errs)
 	actualJSON = string(jsonBytes)
 	expectedJSON = `{"errors":{}}`
-	if expectedJSON != actualJSON {
-		t.Errorf(`Validation errs assertion failed; expected: %s, actual: %s`, expectedJSON, actualJSON)
-	}
+	assert.JSONEq(t, expectedJSON, actualJSON)
 }
 
 func TestBooleanFails(t *testing.T) {
@@ -2492,9 +2480,7 @@ func TestBooleanFails(t *testing.T) {
 	jsonBytes, _ := json.Marshal(errs)
 	actualJSON := string(jsonBytes)
 	expectedJSON := `{"errors":{"is_admin":["hello does not validate as boolean"]}}`
-	if expectedJSON != actualJSON {
-		t.Errorf(`Validation errs assertion failed; expected: %s, actual: %s`, expectedJSON, actualJSON)
-	}
+	assert.JSONEq(t, expectedJSON, actualJSON)
 }
 
 func TestConvertToIntPasses(t *testing.T) {
@@ -2506,9 +2492,7 @@ func TestConvertToIntPasses(t *testing.T) {
 	jsonBytes, _ := json.Marshal(errs)
 	actualJSON := string(jsonBytes)
 	expectedJSON := `{"errors":{}}`
-	if expectedJSON != actualJSON {
-		t.Errorf(`Validation errs assertion failed; expected: %s, actual: %s`, expectedJSON, actualJSON)
-	}
+	assert.JSONEq(t, expectedJSON, actualJSON)
 }
 
 func TestConvertToIntFails(t *testing.T) {
@@ -2520,9 +2504,7 @@ func TestConvertToIntFails(t *testing.T) {
 	jsonBytes, _ := json.Marshal(errs)
 	actualJSON := string(jsonBytes)
 	expectedJSON := `{"errors":{"user_id":["Not an integer"]}}`
-	if expectedJSON != actualJSON {
-		t.Errorf(`Validation errs assertion failed; expected: %s, actual: %s`, expectedJSON, actualJSON)
-	}
+	assert.JSONEq(t, expectedJSON, actualJSON)
 }
 
 type House struct {
@@ -2547,9 +2529,7 @@ func TestForbiddenPasses(t *testing.T) {
 	jsonBytes, _ := json.Marshal(errs)
 	actualJSON := string(jsonBytes)
 	expectedJSON := `{"errors":{}}`
-	if expectedJSON != actualJSON {
-		t.Errorf(`Validation errs assertion failed; expected: %s, actual: %s`, expectedJSON, actualJSON)
-	}
+	assert.JSONEq(t, expectedJSON, actualJSON)
 }
 
 func TestForbiddenFails(t *testing.T) {
@@ -2568,9 +2548,7 @@ func TestForbiddenFails(t *testing.T) {
 	jsonBytes, _ := json.Marshal(errs)
 	actualJSON := string(jsonBytes)
 	expectedJSON := `{"errors":{"house_id":["Illegal attribute"],"property_id":["Not yet implemented"]}}`
-	if expectedJSON != actualJSON {
-		t.Errorf(`Validation errs assertion failed; expected: %s, actual: %s`, expectedJSON, actualJSON)
-	}
+	assert.JSONEq(t, expectedJSON, actualJSON)
 }
 
 type Num struct {
@@ -2590,9 +2568,7 @@ func TestInvalidNumeric(t *testing.T) {
 	jsonBytes, _ := json.Marshal(errs)
 	actualJSON := string(jsonBytes)
 	expectedJSON := `{"errors":{"number":["hello does not validate as numeric"]}}`
-	if expectedJSON != actualJSON {
-		t.Errorf(`Validation errs assertion failed; expected: %s, actual: %s`, expectedJSON, actualJSON)
-	}
+	assert.JSONEq(t, expectedJSON, actualJSON)
 }
 
 func TestValidNumeric(t *testing.T) {
@@ -2608,9 +2584,7 @@ func TestValidNumeric(t *testing.T) {
 	jsonBytes, _ := json.Marshal(errs)
 	actualJSON := string(jsonBytes)
 	expectedJSON := `{"errors":{}}`
-	if expectedJSON != actualJSON {
-		t.Errorf(`Validation errs assertion failed; expected: %s, actual: %s`, expectedJSON, actualJSON)
-	}
+	assert.JSONEq(t, expectedJSON, actualJSON)
 }
 
 func TestOptionalPasses(t *testing.T) {
@@ -2629,9 +2603,7 @@ func TestOptionalPasses(t *testing.T) {
 	jsonBytes, _ := json.Marshal(errs)
 	actualJSON := string(jsonBytes)
 	expectedJSON := `{"errors":{}}`
-	if expectedJSON != actualJSON {
-		t.Errorf(`Validation errs assertion failed; expected: %s, actual: %s`, expectedJSON, actualJSON)
-	}
+	assert.JSONEq(t, expectedJSON, actualJSON)
 }
 
 func TestOptionalFails(t *testing.T) {
@@ -2653,9 +2625,7 @@ func TestOptionalFails(t *testing.T) {
 	jsonBytes, _ := json.Marshal(errs)
 	actualJSON := string(jsonBytes)
 	expectedJSON := `{"errors":{"name":["does not validate as nonemptystring"]}}`
-	if expectedJSON != actualJSON {
-		t.Errorf(`Validation errs assertion failed; expected: %s, actual: %s`, expectedJSON, actualJSON)
-	}
+	assert.JSONEq(t, expectedJSON, actualJSON)
 }
 
 func TestInvalidValidator(t *testing.T) {
