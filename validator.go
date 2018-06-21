@@ -758,7 +758,7 @@ func ValidateStruct(s interface{}) (bool, error) {
 			var err error
 			structResult, err = ValidateStruct(valueField.Interface())
 			if err != nil {
-				errs = append(errs, err)
+				errs = append(errs, NewError(err))
 			}
 		}
 
@@ -773,7 +773,7 @@ func ValidateStruct(s interface{}) (bool, error) {
 					err2 = jsonError
 				case Errors:
 					for i2, err3 := range jsonError {
-						switch customErr := err3.(type) {
+						switch customErr := interface{}(err3).(type) {
 						case Error:
 							customErr.Name = jsonTag
 							jsonError[i2] = customErr
@@ -783,7 +783,7 @@ func ValidateStruct(s interface{}) (bool, error) {
 				}
 			}
 
-			errs = append(errs, err2)
+			errs = append(errs, NewError(err2))
 		}
 
 		result = result && resultField && structResult
@@ -807,18 +807,13 @@ func allErrors() map[string]map[string][]string {
 	return map[string]map[string][]string{"errors": errorsMap}
 }
 
-func appendErrorsMap(attr string, err error) {
+func appendErrorsMap(attr string, err Error) {
 	if errorsMap == nil {
 		return
 	}
 
 	attr = toJSONName(attr)
 	errMsg := err.Error()
-
-	segs := strings.Split(errMsg, `:`)
-	if len(segs) > 1 {
-		errMsg = strings.Trim(segs[1], ` `)
-	}
 
 	errorsMap[attr] = append(errorsMap[attr], errMsg)
 }
@@ -1065,7 +1060,7 @@ func typeCheck(v reflect.Value, t reflect.StructField, o reflect.Value, options 
 			return true, nil
 		}
 		e := Error{t.Name, fmt.Errorf("All fields are required to at least have one validation defined"), false, "required"}
-		appendErrorsMap(jsonTag, e.Err)
+		appendErrorsMap(jsonTag, e)
 		return false, e
 	case "-":
 		return true, nil
@@ -1118,15 +1113,13 @@ func typeCheck(v reflect.Value, t reflect.StructField, o reflect.Value, options 
 			}
 		}
 	}
-	if len(customTypeErrors.Errors()) > 0 {
+	if len(customTypeErrors) > 0 {
 		for _, customErr := range customTypeErrors {
 			// Add to the map of all validation errors in the struct.
-			if customErr != nil {
-				if firstErr == nil {
-					firstErr = customErr
-				}
-				appendErrorsMap(jsonTag, customErr)
+			if firstErr == nil {
+				firstErr = customErr.Err
 			}
+			appendErrorsMap(jsonTag, customErr)
 		}
 		return false, customTypeErrors
 	}
@@ -1233,7 +1226,7 @@ func typeCheck(v reflect.Value, t reflect.StructField, o reflect.Value, options 
 				if firstErr == nil {
 					firstErr = err
 				}
-				appendErrorsMap(jsonTag, err)
+				appendErrorsMap(jsonTag, NewError(err))
 			}
 		}
 

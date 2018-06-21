@@ -2138,6 +2138,26 @@ func TestIsIn(t *testing.T) {
 	}
 }
 
+func TestCustomErrorMessageWithColon(t *testing.T) {
+	type Person struct {
+		Name string `json:"name" valid:"required~Error: No value found"`
+	}
+
+	p := new(Person)
+
+	valid, errs := Validate(p)
+	if valid || errs == nil {
+		t.Errorf(`Expected valid to be false`)
+	}
+
+	jsonBytes, _ := json.Marshal(errs)
+	actualJSON := string(jsonBytes)
+	expectedJSON := `{"errors":{"name":["Error: No value found"]}}`
+	if expectedJSON != actualJSON {
+		t.Errorf(`Validation errs assertion failed; expected: %s, actual: %s`, expectedJSON, actualJSON)
+	}
+}
+
 type Address struct {
 	Street string `valid:"-"`
 	Zip    string `json:"zip" valid:"numeric,required"`
@@ -2371,13 +2391,13 @@ func TestNonEmptyString(t *testing.T) {
 	}
 }
 
-func TestNotEmptyString(t *testing.T) {
+func TestNonEmptyStringFails(t *testing.T) {
 	if IsNonEmptyString(`  `) {
 		t.Errorf(`Expected empty string to be false (invalid)`)
 	}
 }
 
-func TestNotNonEmptyString(t *testing.T) {
+func TestNonEmptyStringPasses(t *testing.T) {
 	if !IsNonEmptyString(` hello `) {
 		t.Errorf(`Expected non empty string to be true (valid)`)
 	}
@@ -2645,7 +2665,7 @@ func TestInvalidValidator(t *testing.T) {
 
 	invalidStruct := InvalidStruct{1}
 	if valid, err := ValidateStruct(&invalidStruct); valid || err == nil ||
-		err.Error() != `Field: The following validator is invalid or can't be applied to the field: "someInvalidValidator"` {
+		err.Error() != `The following validator is invalid or can't be applied to the field: "someInvalidValidator"` {
 		t.Errorf("Got an unexpected result for struct with invalid validator: %t %s", valid, err)
 	}
 }
@@ -2672,7 +2692,7 @@ func TestCustomValidator(t *testing.T) {
 	}
 
 	mixedStruct := StructWithCustomAndBuiltinValidator{}
-	if valid, err := ValidateStruct(&mixedStruct); valid || err == nil || err.Error() != "Field: non zero value required" {
+	if valid, err := ValidateStruct(&mixedStruct); valid || err == nil || err.Error() != "non zero value required" {
 		t.Errorf("Got an unexpected result for invalid struct with custom and built-in validators: %t %s", valid, err)
 	}
 
@@ -2834,31 +2854,6 @@ func TestFunkyIsInStruct(t *testing.T) {
 	}
 }
 
-// TODO: test case broken
-// func TestStringMatchesComplexStruct(t *testing.T) {
-// 	var tests = []struct {
-// 		param    interface{}
-// 		expected bool
-// 	}{
-// 		{StringMatchesComplexStruct{"$()"}, false},
-// 		{StringMatchesComplexStruct{"$('AZERTY')"}, true},
-// 		{StringMatchesComplexStruct{`$("AZERTY")`}, true},
-// 		{StringMatchesComplexStruct{`$("")`}, false},
-// 		{StringMatchesComplexStruct{"AZERTY"}, false},
-// 		{StringMatchesComplexStruct{"$AZERTY"}, false},
-// 	}
-
-// 	for _, test := range tests {
-// 		actual, err := ValidateStruct(test.param)
-// 		if actual != test.expected {
-// 			t.Errorf("Expected ValidateStruct(%q) to be %v, got %v", test.param, test.expected, actual)
-// 			if err != nil {
-// 				t.Errorf("Got Error on ValidateStruct(%q): %s", test.param, err)
-// 			}
-// 		}
-// 	}
-// }
-
 type testByteArray [8]byte
 type testByteMap map[byte]byte
 type testByteSlice []byte
@@ -2999,7 +2994,6 @@ func TestIsCIDR(t *testing.T) {
 }
 
 func TestJSONValidator(t *testing.T) {
-
 	var val struct {
 		WithJSONName      string `json:"with_json_name" valid:"-,required"`
 		WithoutJSONName   string `valid:"-,required"`
@@ -3018,16 +3012,8 @@ func TestJSONValidator(t *testing.T) {
 		t.Errorf("Expected error message to contain with_json_name but actual error is: %s", err.Error())
 	}
 
-	if Contains(err.Error(), "WithoutJSONName") == false {
-		t.Errorf("Expected error message to contain WithoutJSONName but actual error is: %s", err.Error())
-	}
-
 	if Contains(err.Error(), "omitempty") {
 		t.Errorf("Expected error message to not contain ',omitempty' but actual error is: %s", err.Error())
-	}
-
-	if !Contains(err.Error(), "WithEmptyJSONName") {
-		t.Errorf("Expected error message to contain WithEmptyJSONName but actual error is: %s", err.Error())
 	}
 }
 

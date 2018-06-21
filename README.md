@@ -187,7 +187,18 @@ Built-in validators with parameters:
 
 ### Altering Default Validation Behavior
 
-#### Validation Required
+#### Custom Error Messages
+
+Custom error messages are supported via annotations by adding the `~` separator - here's an example of how to use it:
+
+```go
+type Ticket struct {
+  Id        int64     `json:"id" valid:"-"`
+  FirstName string    `json:"firstname" valid:"required~First name is blank"`
+}
+```
+
+#### Requiring Rules By Default
 
 Activate behavior to require all fields have a validation tag by default.
 `SetFieldsRequiredByDefault` causes validation to fail when struct fields do not include validations or are not explicitly marked as exempt (using `valid:"-"` or containing an `optional` tag e.g. `valid:"optional,email"`). This effectively applies the `valid:"required"` tag to all struct fields. A good place to activate this is a package `init()` function.
@@ -223,19 +234,6 @@ type exampleStruct2 struct {
   Email string `valid:"optional,email"`
 }
 ```
-
-#### Validation Error Messages
-
-Custom error messages are supported via annotations by adding the `~` separator - here's an example of how to use it:
-
-```go
-type Ticket struct {
-  Id        int64     `json:"id"`
-  FirstName string    `json:"firstname" valid:"required~First name is blank"`
-}
-```
-
-**Note**: Don't use colons (`:`) in your custom error messages as this affects the collection logic when working with all errors.
 
 ### Adding Custom Validators
 

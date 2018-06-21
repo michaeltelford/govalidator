@@ -2,22 +2,6 @@ package govalidator
 
 import "strings"
 
-// Errors is an array of multiple errors and conforms to the error interface.
-type Errors []error
-
-// Errors returns itself.
-func (es Errors) Errors() []error {
-	return es
-}
-
-func (es Errors) Error() string {
-	var errs []string
-	for _, e := range es {
-		errs = append(errs, e.Error())
-	}
-	return strings.Join(errs, ";")
-}
-
 // Error encapsulates a name, an error and whether there's a custom error message or not.
 type Error struct {
 	Name                     string
@@ -29,8 +13,32 @@ type Error struct {
 }
 
 func (e Error) Error() string {
-	if e.CustomErrorMessageExists {
-		return e.Err.Error()
+	return strings.Trim(e.Err.Error(), ` `)
+}
+
+// NewError from existing error.
+func NewError(err error) Error {
+	return Error{
+		Err: err,
+		CustomErrorMessageExists: true,
 	}
-	return e.Name + ": " + e.Err.Error()
+}
+
+// Errors is an array of multiple errors and conforms to the error interface.
+type Errors []Error
+
+// Errors returns itself.
+func (es Errors) Errors() (errs []error) {
+	for _, err := range es {
+		errs = append(errs, err.Err)
+	}
+	return
+}
+
+func (es Errors) Error() string {
+	var errs []string
+	for _, e := range es {
+		errs = append(errs, e.Error())
+	}
+	return strings.Join(errs, ";")
 }
