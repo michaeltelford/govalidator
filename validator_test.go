@@ -2331,7 +2331,7 @@ func TestFieldsRequiredByDefaultButExemptStruct(t *testing.T) {
 	SetFieldsRequiredByDefault(false)
 }
 
-// Person is used in TestValidate.
+// Person is used in TestValidate test cases below.
 type Person struct {
 	Name        string `valid:"optional,length(2|20),in(Mick|Michael)" json:"name,omitempty"`
 	Email       string `valid:"email~Not an email" json:"email,omitempty"`

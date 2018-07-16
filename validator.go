@@ -722,6 +722,7 @@ func toJSONName(tag string) string {
 
 // ValidateStruct uses field tags to validate.
 // Returns valid bool and error.
+// Called from Validate().
 func ValidateStruct(s interface{}) (bool, error) {
 	if s == nil {
 		return true, nil
@@ -762,7 +763,7 @@ func ValidateStruct(s interface{}) (bool, error) {
 			}
 		}
 
-		resultField, err2 := typeCheck(valueField, typeField, val, nil)
+		resultField, err2 := typeCheck(valueField, typeField, val, nil, nil)
 		if err2 != nil {
 			// Replace structure name with JSON name if there is a tag on the variable
 			jsonTag := toJSONName(typeField.Tag.Get("json"))
@@ -850,9 +851,12 @@ func ConvertToInt(intStr, attr string) (int, map[string]map[string][]string) {
 	return 0, errsMap
 }
 
-// parseTagIntoMap parses a struct tag `valid:required~Some error message,length(2|3)` into map[string]string{"required": "Some error message", "length(2|3)": ""}
-func parseTagIntoMap(tag string) tagOptionsMap {
-	optionsMap := make(tagOptionsMap)
+// parseTagIntoMap parses all valid:`` tags into a []string (maintaining order)
+// and then parses a struct tag of `valid:required~Some error message,length(2|3)`
+// into message map[string]string{"required": "Some error message", "length(2|3)": ""}
+func parseTagIntoMap(tag string) (tags tagMap, msgs tagCustomMsgMap) {
+	tags = make(tagMap, 0)
+	msgs = make(tagCustomMsgMap, 0)
 	options := strings.Split(tag, ",")
 
 	for _, option := range options {
@@ -862,13 +866,17 @@ func parseTagIntoMap(tag string) tagOptionsMap {
 		if !isValidTag(validationOptions[0]) {
 			continue
 		}
+
+		tags = append(tags, validationOptions[0])
+
 		if len(validationOptions) == 2 {
-			optionsMap[validationOptions[0]] = validationOptions[1]
+			msgs[validationOptions[0]] = validationOptions[1]
 		} else {
-			optionsMap[validationOptions[0]] = ""
+			msgs[validationOptions[0]] = ""
 		}
 	}
-	return optionsMap
+
+	return
 }
 
 func isValidTag(s string) bool {
@@ -1016,7 +1024,7 @@ func IsIn(str string, params ...string) bool {
 }
 
 // Process `required` and `optional` tags if present.
-func checkRequired(v reflect.Value, t reflect.StructField, options tagOptionsMap) (bool, error) {
+func checkRequired(v reflect.Value, t reflect.StructField, options tagCustomMsgMap) (bool, error) {
 	if requiredOption, isRequired := options["required"]; isRequired {
 		if len(requiredOption) > 0 {
 			return false, Error{t.Name, fmt.Errorf(requiredOption), true, "required"}
@@ -1030,7 +1038,7 @@ func checkRequired(v reflect.Value, t reflect.StructField, options tagOptionsMap
 }
 
 // Process `forbidden` tag if present.
-func checkForbidden(v reflect.Value, t reflect.StructField, options tagOptionsMap) (bool, error) {
+func checkForbidden(v reflect.Value, t reflect.StructField, options tagCustomMsgMap) (bool, error) {
 	if option, found := options[`forbidden`]; found {
 		if len(option) > 0 {
 			return false, Error{t.Name, fmt.Errorf(option), true, `forbidden`}
@@ -1040,8 +1048,18 @@ func checkForbidden(v reflect.Value, t reflect.StructField, options tagOptionsMa
 	return true, nil
 }
 
+func deleteTagAndMsg(tags tagMap, msgs tagCustomMsgMap, tag string) tagMap {
+	delete(msgs, tag)
+	for i, t := range tags {
+		if t == tag {
+			return append(tags[:i], tags[i+1:]...)
+		}
+	}
+	return tags
+}
+
 // v is struct field value, t is struct field type and o is the full struct (value).
-func typeCheck(v reflect.Value, t reflect.StructField, o reflect.Value, options tagOptionsMap) (isValid bool, resultErr error) {
+func typeCheck(v reflect.Value, t reflect.StructField, o reflect.Value, tags tagMap, msgs tagCustomMsgMap) (isValid bool, resultErr error) {
 	var validResult bool
 	var err error
 	var firstErr error
@@ -1050,7 +1068,7 @@ func typeCheck(v reflect.Value, t reflect.StructField, o reflect.Value, options 
 		return false, nil
 	}
 
-	tag := t.Tag.Get(tagName)
+	tag := t.Tag.Get(tagName) // `valid`
 	jsonTag := t.Tag.Get(`json`)
 
 	// Check if the field should be ignored: `valid:""` or `valid:"-"` tags.
@@ -1067,22 +1085,22 @@ func typeCheck(v reflect.Value, t reflect.StructField, o reflect.Value, options 
 	}
 
 	isRootType := false
-	if options == nil {
+	if tags == nil {
 		isRootType = true
-		options = parseTagIntoMap(tag)
+		tags, msgs = parseTagIntoMap(tag)
 	}
 
 	// Presence validation; if the value is empty, process the `required`
 	// and `optional` tags otherwise process the `forbidden` tag.
 	if isEmptyValue(v) {
 		// Process `required` and `optional` tags.
-		if tempIsValid, tempError := checkRequired(v, t, options); !tempIsValid && tempError != nil {
+		if tempIsValid, tempError := checkRequired(v, t, msgs); !tempIsValid && tempError != nil {
 			validResult = false
 			err = tempError
 			if firstErr == nil {
 				firstErr = err
 			}
-		} else if _, isOptional := options["optional"]; tempIsValid && tempError == nil && isOptional {
+		} else if _, isOptional := msgs["optional"]; tempIsValid && tempError == nil && isOptional {
 			// At this point, we know the value is empty and the optional tag
 			// is present so don't bother with other validators (which are
 			// only run if non zero value). Return valid=true.
@@ -1090,7 +1108,7 @@ func typeCheck(v reflect.Value, t reflect.StructField, o reflect.Value, options 
 		}
 	} else {
 		// Process `forbidden` tag.
-		if tempIsValid, tempError := checkForbidden(v, t, options); !tempIsValid && tempError != nil {
+		if tempIsValid, tempError := checkForbidden(v, t, msgs); !tempIsValid && tempError != nil {
 			validResult = false
 			err = tempError
 			if firstErr == nil {
@@ -1100,16 +1118,17 @@ func typeCheck(v reflect.Value, t reflect.StructField, o reflect.Value, options 
 	}
 
 	var customTypeErrors Errors
-	for validatorName, customErrorMessage := range options {
-		if validatefunc, ok := CustomTypeTagMap.Get(validatorName); ok {
-			delete(options, validatorName)
+	for _, tag := range tags {
+		customErrorMessage := msgs[tag]
+		if validatefunc, ok := CustomTypeTagMap.Get(tag); ok {
+			tags = deleteTagAndMsg(tags, msgs, tag)
 
 			if result := validatefunc(v.Interface(), o.Interface()); !result {
 				if len(customErrorMessage) > 0 {
-					customTypeErrors = append(customTypeErrors, Error{Name: t.Name, Err: fmt.Errorf(customErrorMessage), CustomErrorMessageExists: true, Validator: stripParams(validatorName)})
+					customTypeErrors = append(customTypeErrors, Error{Name: t.Name, Err: fmt.Errorf(customErrorMessage), CustomErrorMessageExists: true, Validator: stripParams(tag)})
 					continue
 				}
-				customTypeErrors = append(customTypeErrors, Error{Name: t.Name, Err: fmt.Errorf("%s does not validate as %s", fmt.Sprint(v), validatorName), CustomErrorMessageExists: false, Validator: stripParams(validatorName)})
+				customTypeErrors = append(customTypeErrors, Error{Name: t.Name, Err: fmt.Errorf("%s does not validate as %s", fmt.Sprint(v), tag), CustomErrorMessageExists: false, Validator: stripParams(tag)})
 			}
 		}
 	}
@@ -1127,12 +1146,12 @@ func typeCheck(v reflect.Value, t reflect.StructField, o reflect.Value, options 
 	if isRootType {
 		// Ensure that we've checked the value by all specified validators before report that the value is valid.
 		defer func() {
-			delete(options, "optional")
-			delete(options, "required")
-			delete(options, "forbidden")
+			tags = deleteTagAndMsg(tags, msgs, "optional")
+			tags = deleteTagAndMsg(tags, msgs, "required")
+			tags = deleteTagAndMsg(tags, msgs, "forbidden")
 
-			if isValid && resultErr == nil && len(options) != 0 {
-				for validator := range options {
+			if isValid && resultErr == nil && len(tags) != 0 {
+				for _, validator := range tags {
 					isValid = false
 					resultErr = Error{t.Name, fmt.Errorf(
 						"The following validator is invalid or can't be applied to the field: %q", validator), false, stripParams(validator)}
@@ -1150,7 +1169,10 @@ func typeCheck(v reflect.Value, t reflect.StructField, o reflect.Value, options 
 		reflect.String:
 
 		// for each tag option check the map of validator functions
-		for validatorSpec, customErrorMessage := range options {
+		for _, tag := range tags {
+			validatorSpec := tag
+			customErrorMessage := msgs[tag]
+
 			var negate bool
 			validator := validatorSpec
 			customMsgExists := len(customErrorMessage) > 0
@@ -1173,7 +1195,7 @@ func typeCheck(v reflect.Value, t reflect.StructField, o reflect.Value, options 
 					continue
 				}
 
-				delete(options, validatorSpec)
+				tags = deleteTagAndMsg(tags, msgs, tag)
 
 				switch v.Kind() {
 				case reflect.String,
@@ -1199,7 +1221,7 @@ func typeCheck(v reflect.Value, t reflect.StructField, o reflect.Value, options 
 			}
 
 			if validatefunc, ok := TagMap[validator]; ok {
-				delete(options, validatorSpec)
+				tags = deleteTagAndMsg(tags, msgs, tag)
 
 				switch v.Kind() {
 				case reflect.String:
@@ -1247,7 +1269,7 @@ func typeCheck(v reflect.Value, t reflect.StructField, o reflect.Value, options 
 			var resultItem bool
 			var err error
 			if v.MapIndex(k).Kind() != reflect.Struct {
-				resultItem, err = typeCheck(v.MapIndex(k), t, o, options)
+				resultItem, err = typeCheck(v.MapIndex(k), t, o, tags, msgs)
 				if err != nil {
 					return false, err
 				}
@@ -1266,7 +1288,7 @@ func typeCheck(v reflect.Value, t reflect.StructField, o reflect.Value, options 
 			var resultItem bool
 			var err error
 			if v.Index(i).Kind() != reflect.Struct {
-				resultItem, err = typeCheck(v.Index(i), t, o, options)
+				resultItem, err = typeCheck(v.Index(i), t, o, tags, msgs)
 				if err != nil {
 					return false, err
 				}
@@ -1290,7 +1312,7 @@ func typeCheck(v reflect.Value, t reflect.StructField, o reflect.Value, options 
 		if v.IsNil() {
 			return true, nil
 		}
-		return typeCheck(v.Elem(), t, o, options)
+		return typeCheck(v.Elem(), t, o, tags, msgs)
 	case reflect.Struct:
 		return ValidateStruct(v.Interface())
 	default:
