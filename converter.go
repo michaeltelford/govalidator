@@ -62,3 +62,16 @@ func ToInt(value interface{}) (res int64, err error) {
 func ToBoolean(str string) (bool, error) {
 	return strconv.ParseBool(str)
 }
+
+// ConvertToInt returns an integer if conversion from string is possible.
+// Otherwise a map of errors is returned containing the 'attr' attribute.
+func ConvertToInt(intStr, attr string) (int, map[string]map[string][]string) {
+	if i, err := strconv.Atoi(intStr); err == nil {
+		errs := map[string][]string{}
+		errsMap := map[string]map[string][]string{"errors": errs}
+		return i, errsMap
+	}
+	errs := map[string][]string{attr: []string{`Not an integer`}}
+	errsMap := map[string]map[string][]string{"errors": errs}
+	return 0, errsMap
+}

@@ -58,28 +58,33 @@ func IsEmail(str string) bool {
 	return rxEmail.MatchString(str)
 }
 
-// IsExistingEmail check if the string is an email of existing domain
+// IsExistingEmail checks if the string is an email of existing domain.
+// Requires a network/Internet connection. Func and tests will fail otherwise.
 func IsExistingEmail(email string) bool {
-
 	if len(email) < 6 || len(email) > 254 {
 		return false
 	}
+
 	at := strings.LastIndex(email, "@")
 	if at <= 0 || at > len(email)-3 {
 		return false
 	}
+
 	user := email[:at]
 	host := email[at+1:]
 	if len(user) > 64 {
 		return false
 	}
+
 	if userDotRegexp.MatchString(user) || !userRegexp.MatchString(user) || !hostRegexp.MatchString(host) {
 		return false
 	}
+
 	switch host {
 	case "localhost", "example.com":
 		return true
 	}
+
 	if _, err := net.LookupMX(host); err != nil {
 		if _, err := net.LookupIP(host); err != nil {
 			return false
@@ -720,9 +725,9 @@ func toJSONName(tag string) string {
 	return name
 }
 
-// ValidateStruct uses field tags to validate.
-// Returns valid bool and error.
-// Called from Validate().
+// ValidateStruct uses `valid` field tags to validate.
+// Returns an isValid boolean and the first validation error found.
+// Use `Validate` instead for returning all errors.
 func ValidateStruct(s interface{}) (bool, error) {
 	if s == nil {
 		return true, nil
@@ -796,7 +801,9 @@ func ValidateStruct(s interface{}) (bool, error) {
 	return result, err
 }
 
-// Validate validates a struct and records all errors found.
+// Validate uses `valid` field tags to validate a struct.
+// Returns an isValid boolean and all validation errors found.
+// Use `ValidateStruct` instead for returning the first error found.
 func Validate(i interface{}) (bool, map[string]map[string][]string) {
 	errorsMap = make(map[string][]string, 0)
 	valid, _ := ValidateStruct(i)
@@ -836,19 +843,6 @@ func removeDuplicates(xs []string) []string {
 		}
 	}
 	return xs[:j]
-}
-
-// ConvertToInt returns an integer if conversion from string is possible.
-// Otherwise a map of errors is returned containing the 'attr' attribute.
-func ConvertToInt(intStr, attr string) (int, map[string]map[string][]string) {
-	if i, err := strconv.Atoi(intStr); err == nil {
-		errs := map[string][]string{}
-		errsMap := map[string]map[string][]string{"errors": errs}
-		return i, errsMap
-	}
-	errs := map[string][]string{attr: []string{`Not an integer`}}
-	errsMap := map[string]map[string][]string{"errors": errs}
-	return 0, errsMap
 }
 
 // parseTagIntoMap parses all valid:`` tags into a []string (maintaining order)

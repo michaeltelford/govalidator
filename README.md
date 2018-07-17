@@ -1,30 +1,38 @@
 # govalidator
 
-A package of validators and sanitizers for strings, structs and collections. Based on [validator.js](https://github.com/chriso/validator.js). Perfect for API's.
+A package of validators and sanitizers for strings, structs and collections. Based on [validator.js](https://github.com/chriso/validator.js). Perfect for validating HTTP API's.
 
-This is a fork of https://github.com/asaskevich/govalidator to alter and extend the behavior:
-
-- The new `Validate()` func returns all validation errors instead of just the first one found. The errors are returned in a `map` for easy JSON marshalling.
-- Added new validators such as `forbidden` etc.
-- Totally reworked the `README` to make it easier to use the lib.
-
-Things the original repo already did well include:
+This is a fork of https://github.com/asaskevich/govalidator to alter and extend the behavior. Things the original repo already did well include:
 
 - Use of `valid:""` struct tags to define field validations.
 - Solid range of built in validators and the ability to create custom ones if required.
 - Allows `required` (tag) validation where the struct field value provided must be non-zero based e.g. strings cannot be an empty string and integers cannot be zero etc.
 
+New changes since forking the repo:
+
+- The new `Validate()` func returns all validation errors instead of just the first one found. The errors are returned in a `map` for easy processing e.g. JSON marshalling.
+- Added new `valid` tags such as `forbidden` etc.
+- Totally reworked the `README` to make it easier to use the lib.
+
 ## Installation
 
 Install from the command line with:
 
-    $ go get github.com/michaeltelford/govalidator
+    $ go get gopkg.in/michaeltelford/govalidator.v10
 
 Import into your `*.go` files with:
 
 ```go
-import "github.com/michaeltelford/govalidator"
+import "gopkg.in/michaeltelford/govalidator.v10"
 ```
+
+Then refer to the package as `govalidator`.
+
+## Docs
+
+View the `godocs` at:
+
+https://godoc.org/gopkg.in/michaeltelford/govalidator.v10
 
 ## Basic Usage
 
@@ -37,7 +45,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/michaeltelford/govalidator"
+	"gopkg.in/michaeltelford/govalidator.v10"
 )
 
 type User struct {
@@ -87,25 +95,26 @@ Which produces the following JSON errors (which could be returned as a 400 Bad R
 Things to note:
 
 - Struct field `valid` tag contains list of comma separated validators.
-- `govalidator.Validate(struct)` performs validations on the given struct.
+- `govalidator.Validate(user)` performs validations on the given struct.
 - The returned `valid, errs` is of `bool, map` types for easy handling post validation.
+- The returned `errs` contain the `json` tag field names (if provided).
 
 ### Built-in Validators
 
 #### Validating Field Presence
 
-If you are validating when a struct field value is present (or not present) you can use the following validators:
+If you are validating when a struct field value is present (or absent) you can use the following validator tags inside `valid:""`:
 
 | Tag             | Description |
 | --------------- | ----------- |
 | `-`             | No validations are performed. |
-| `optional`      | To be used with other validators (separated by a comma e.g. `optional,email`). Run all other validators if value is non zero, otherwise it's valid. |
+| `optional`      | To be used with other validators (separated by a comma e.g. `optional,email`). Run all other validators if value is non zero, otherwise skip this field. |
 | `forbidden` | A field must have a zero value set. |
 | `required`      | A field must have a non zero value set. Note that `required` isn't needed with other validators that inheritantly validate a value's presence e.g. `nonemptystring`. Omitting `required` in these cases reduces the number of error messages. |
 
 #### Validating String Values
 
-If you are validating a `string` struct field's value then below are some (not all) of the most common validators:
+If you are validating a `string` struct field's value then below are some of the most common validation tags:
 
 | Tag             | Description |
 | --------------- | ----------- |
@@ -206,7 +215,7 @@ Activate behavior to require all fields have a validation tag by default.
 For example:
 
 ```go
-import "github.com/michaeltelford/govalidator"
+import "gopkg.in/michaeltelford/govalidator.v10"
 
 func init() {
   govalidator.SetFieldsRequiredByDefault(true)
@@ -216,19 +225,19 @@ func init() {
 Here's some code to help explain it:
 
 ```go
-// this struct definition will fail govalidator.ValidateStruct() (and the field values do not matter):
+// This struct definition will fail govalidator.Validate() (and the field values do not matter):
 type exampleStruct struct {
   Name  string ``
   Email string `valid:"email"`
 }
 
-// this, however, will only fail when Email is empty or an invalid email address:
+// This, however, will only fail when Email is empty or an invalid email address:
 type exampleStruct2 struct {
   Name  string `valid:"-"`
   Email string `valid:"email"`
 }
 
-// lastly, this will only fail when Email is an invalid email address but not when it's empty:
+// Lastly, this will only fail when Email is an invalid email address but not when it's empty:
 type exampleStruct2 struct {
   Name  string `valid:"-"`
   Email string `valid:"optional,email"`
@@ -237,12 +246,12 @@ type exampleStruct2 struct {
 
 ### Adding Custom Validators
 
-Custom validation using your own domain specific validator tags is also available, here's an example of how to use it:
+Custom validation using your own domain specific validator tags is also available, here's a (somewhat advanced) example of how to use it:
 
 ```go
 package main
 
-import "github.com/michaeltelford/govalidator"
+import "gopkg.in/michaeltelford/govalidator.v10"
 
 type CustomByteArray [6]byte // Custom types are supported and can be validated.
 
@@ -293,8 +302,9 @@ Here is another which validates that a URL's ID field is a numeric value:
 
 ```go
 // Pass in user ID string and attribute name (used in errs).
+// id will be 0 if conversion fails.
 id, errs := govalidator.ConvertToInt(userIDStr, `user_id`)
-if id < 1 { // id will be 0 if conversion fails.
+if id < 1 {
   // Invalid user ID, use errs map...
 }
 // Conversion succeeded, use id (of type int) as needed...
