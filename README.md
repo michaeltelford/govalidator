@@ -96,6 +96,7 @@ Things to note:
 
 - Struct field `valid` tag contains list of comma separated validators.
 - `govalidator.Validate(user)` performs validations on the given struct.
+- Only public fields are validated, private fields are skipped.
 - The returned `valid, errs` is of `bool, map` types for easy handling post validation.
 - The returned `errs` contain the `json` tag field names (if provided).
 

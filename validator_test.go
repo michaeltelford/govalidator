@@ -2257,7 +2257,7 @@ func TestValidateMissingValidationDeclarationStruct(t *testing.T) {
 	}
 	SetFieldsRequiredByDefault(true)
 	for _, test := range tests {
-		actual, err := ValidateStruct(test.param)
+		actual, err := validateStruct(test.param)
 		if actual != test.expected {
 			t.Errorf("Expected ValidateStruct(%q) to be %v, got %v", test.param, test.expected, actual)
 			if err != nil {
@@ -2277,7 +2277,7 @@ func TestFieldRequiredByDefault(t *testing.T) {
 	}
 	SetFieldsRequiredByDefault(true)
 	for _, test := range tests {
-		actual, err := ValidateStruct(test.param)
+		actual, err := validateStruct(test.param)
 		if actual != test.expected {
 			t.Errorf("Expected ValidateStruct(%q) to be %v, got %v", test.param, test.expected, actual)
 			if err != nil {
@@ -2297,7 +2297,7 @@ func TestMultipleFieldsRequiredByDefault(t *testing.T) {
 	}
 	SetFieldsRequiredByDefault(true)
 	for _, test := range tests {
-		actual, err := ValidateStruct(test.param)
+		actual, err := validateStruct(test.param)
 		if actual != test.expected {
 			t.Errorf("Expected ValidateStruct(%q) to be %v, got %v", test.param, test.expected, actual)
 			if err != nil {
@@ -2320,7 +2320,7 @@ func TestFieldsRequiredByDefaultButExemptStruct(t *testing.T) {
 	}
 	SetFieldsRequiredByDefault(true)
 	for _, test := range tests {
-		actual, err := ValidateStruct(test.param)
+		actual, err := validateStruct(test.param)
 		if actual != test.expected {
 			t.Errorf("Expected ValidateStruct(%q) to be %v, got %v", test.param, test.expected, actual)
 			if err != nil {
@@ -2331,7 +2331,7 @@ func TestFieldsRequiredByDefaultButExemptStruct(t *testing.T) {
 	SetFieldsRequiredByDefault(false)
 }
 
-// Person is used in TestValidate test cases below.
+// Person is used in TestValidate* test cases below.
 type Person struct {
 	Name        string `valid:"optional,length(2|20),in(Mick|Michael)" json:"name,omitempty"`
 	Email       string `valid:"email~Not an email" json:"email,omitempty"`
@@ -2346,13 +2346,14 @@ func TestValidateFails(t *testing.T) {
 	}
 
 	valid, errs := Validate(person)
-	if valid || errs == nil {
-		t.Errorf(`Expected valid to be false but it's true`)
-	}
+
+	assert.False(t, valid)
+	assert.NotNil(t, errs)
 
 	jsonBytes, _ := json.Marshal(errs)
 	actualJSON := string(jsonBytes)
 	expectedJSON := `{"errors":{"email":["Not an email"],"house_number":["non zero value required","0 does not validate as range(1|10)"],"name":["M does not validate as length(2|20)","M does not validate as in(Mick|Michael)"]}}`
+
 	assert.JSONEq(t, expectedJSON, actualJSON)
 }
 
@@ -2362,6 +2363,189 @@ func TestValidatePasses(t *testing.T) {
 		Email:       `mick@gmail.com`,
 		Age:         25,
 		HouseNumber: 5,
+	}
+
+	valid, errs := Validate(person)
+
+	assert.True(t, valid)
+	assert.NotNil(t, errs)
+
+	jsonBytes, _ := json.Marshal(errs)
+	actualJSON := string(jsonBytes)
+	expectedJSON := `{"errors":{}}`
+
+	assert.JSONEq(t, expectedJSON, actualJSON)
+}
+
+// PersonWithPointer is used in TestValidatePointer* test cases below.
+type PersonWithPointer struct {
+	Name        *string `valid:"optional,length(2|20),in(Mick|Michael)" json:"name,omitempty"`
+	Email       *string `valid:"email~Not an email" json:"email,omitempty"`
+	Age         *int    `json:"age,omitempty"`
+	HouseNumber *int    `valid:"required,range(1|10)" json:"house_number"`
+}
+
+func TestValidatePointerFails(t *testing.T) {
+	name := `M`
+	email := `michael.com`
+	age := 23
+	houseNumber := 100
+
+	person := PersonWithPointer{
+		Name:        &name,
+		Email:       &email,
+		Age:         &age,
+		HouseNumber: &houseNumber,
+	}
+
+	valid, errs := Validate(person)
+
+	assert.False(t, valid)
+	assert.NotNil(t, errs)
+
+	jsonBytes, _ := json.Marshal(errs)
+	actualJSON := string(jsonBytes)
+	expectedJSON := `{"errors":{"email":["Not an email"],"house_number":["100 does not validate as range(1|10)"],"name":["M does not validate as length(2|20)","M does not validate as in(Mick|Michael)"]}}`
+
+	assert.JSONEq(t, expectedJSON, actualJSON)
+}
+
+func TestValidatePointerPasses(t *testing.T) {
+	name := `Michael`
+	email := `michael@gmail.com`
+	age := 23
+	houseNumber := 10
+
+	person := PersonWithPointer{
+		Name:        &name,
+		Email:       &email,
+		Age:         &age,
+		HouseNumber: &houseNumber,
+	}
+
+	valid, errs := Validate(person)
+
+	assert.True(t, valid)
+	assert.NotNil(t, errs)
+
+	jsonBytes, _ := json.Marshal(errs)
+	actualJSON := string(jsonBytes)
+	expectedJSON := `{"errors":{}}`
+
+	assert.JSONEq(t, expectedJSON, actualJSON)
+}
+
+func TestValidateComplexType(t *testing.T) {
+	// Test helper funcs to return pointers of types.
+	i2p := func(i int) *int64 {
+		i64 := int64(i)
+		return &i64
+	}
+	s2p := func(s string) *string {
+		return &s
+	}
+
+	// Define our complex type consisting of many different sub types.
+	type metaData struct {
+		ID *int64 `valid:"numeric" json:"id"`
+	}
+	type searchResult struct {
+		*metaData
+		Title   string  `valid:"nonemptystring" json:"title"`
+		Snippet *string `valid:"optional,length(1|50)~The provided snippet does not validate as length(1|50)" json:"snippet,omitempty"`
+		Size    int64   `valid:"required,range(1|100)" json:"size"`
+	}
+	type searchResults []searchResult
+	type data struct {
+		Query   string        `valid:"nonemptystring" json:"query"`
+		Results searchResults `valid:"optional,length(1|25)" json:"results,omitempty"`
+	}
+
+	// Build an instance of our complex type (mimicing a search result set).
+	obj := data{
+		Query: "",
+		Results: searchResults{
+			searchResult{
+				metaData: &metaData{ID: i2p(2)},
+				Size:     int64(0),
+			},
+			searchResult{
+				metaData: &metaData{ID: i2p(3)},
+				Title:    "Trek to Everest BC",
+				Snippet:  s2p("Trek to Everest BC today!"),
+				Size:     int64(96),
+			},
+			searchResult{
+				metaData: &metaData{ID: i2p(1)},
+				Title:    "Climb Mount Everest!",
+				Snippet:  s2p("Think you have what it takes to climb the world's highest mountain? Then join Adventure Cons..."),
+				Size:     int64(802),
+			},
+		},
+	}
+
+	// Validate and assert expected result.
+	valid, errs := Validate(obj)
+
+	assert.False(t, valid)
+	assert.NotNil(t, errs)
+
+	jsonBytes, _ := json.Marshal(errs)
+	actualJSON := string(jsonBytes)
+	expectedJSON := `{"errors":{"query":["does not validate as nonemptystring"],"results":{"object_1":{"size":["non zero value required","0 does not validate as range(1|100)"],"title":["does not validate as nonemptystring"]},"object_3":{"size":["802 does not validate as range(1|100)"],"snippet":["The provided snippet does not validate as length(1|50)"]}}}}`
+
+	assert.Equal(t, expectedJSON, actualJSON)
+}
+
+func TestValidatesMultiDimentionalSlice(t *testing.T) {
+	type person struct {
+		Name string `valid:"nonemptystring" json:"name"`
+	}
+	type people struct {
+		People [][]person `valid:"optional,length(1|10)" json:"people"`
+	}
+	obj := people{
+		People: [][]person{
+			{
+				{
+					Name: "Michael",
+				},
+				{
+					Name: "",
+				},
+			},
+			{
+				{
+					Name: "",
+				},
+				{
+					Name: "David",
+				},
+			},
+		},
+	}
+
+	valid, errs := Validate(obj)
+
+	assert.False(t, valid)
+	assert.NotNil(t, errs)
+
+	jsonBytes, _ := json.Marshal(errs)
+	actualJSON := string(jsonBytes)
+	expectedJSON := `{"errors":{"people":{"object_1":{"object_2":{"name":["does not validate as nonemptystring"]}},"object_2":{"object_1":{"name":["does not validate as nonemptystring"]}}}}}`
+
+	assert.Equal(t, expectedJSON, actualJSON)
+}
+
+func TestPrivateFieldsArentValidated(t *testing.T) {
+	person := struct {
+		Name   string `valid:"optional,length(2|20),in(Mick|Michael)" json:"name,omitempty"`
+		Age    int    `json:"age"`
+		salary int    `valid:"forbidden" json:"-"`
+	}{
+		Name:   `Mick`,
+		Age:    95,
+		salary: 10000,
 	}
 
 	valid, errs := Validate(person)
@@ -2634,10 +2818,10 @@ func TestInvalidValidator(t *testing.T) {
 	}
 
 	invalidStruct := InvalidStruct{1}
-	if valid, err := ValidateStruct(&invalidStruct); valid || err == nil ||
-		err.Error() != `The following validator is invalid or can't be applied to the field: "someInvalidValidator"` {
-		t.Errorf("Got an unexpected result for struct with invalid validator: %t %s", valid, err)
-	}
+	valid, err := validateStruct(&invalidStruct)
+
+	assert.False(t, valid)
+	assert.Error(t, err, `The following validator is invalid or can't be applied to the field: "someInvalidValidator"`)
 }
 
 func TestCustomValidator(t *testing.T) {
@@ -2653,21 +2837,21 @@ func TestCustomValidator(t *testing.T) {
 		Field int `valid:"customTrueValidator,required"`
 	}
 
-	if valid, err := ValidateStruct(&ValidStruct{Field: 1}); !valid || err != nil {
+	if valid, err := validateStruct(&ValidStruct{Field: 1}); !valid || err != nil {
 		t.Errorf("Got an unexpected result for struct with custom always true validator: %t %s", valid, err)
 	}
 
-	if valid, err := ValidateStruct(&InvalidStruct{Field: 1}); valid || err == nil || err.Error() != "Custom validator error" {
+	if valid, err := validateStruct(&InvalidStruct{Field: 1}); valid || err == nil || err.Error() != "Custom validator error" {
 		t.Errorf("Got an unexpected result for struct with custom always false validator: %t %s", valid, err)
 	}
 
 	mixedStruct := StructWithCustomAndBuiltinValidator{}
-	if valid, err := ValidateStruct(&mixedStruct); valid || err == nil || err.Error() != "non zero value required" {
+	if valid, err := validateStruct(&mixedStruct); valid || err == nil || err.Error() != "non zero value required" {
 		t.Errorf("Got an unexpected result for invalid struct with custom and built-in validators: %t %s", valid, err)
 	}
 
 	mixedStruct.Field = 1
-	if valid, err := ValidateStruct(&mixedStruct); !valid || err != nil {
+	if valid, err := validateStruct(&mixedStruct); !valid || err != nil {
 		t.Errorf("Got an unexpected result for valid struct with custom and built-in validators: %t %s", valid, err)
 	}
 }
@@ -2695,7 +2879,7 @@ func TestValidateNegationStruct(t *testing.T) {
 		{NegationStruct{"11", "11"}, false},
 	}
 	for _, test := range tests {
-		actual, err := ValidateStruct(test.param)
+		actual, err := validateStruct(test.param)
 		if actual != test.expected {
 			t.Errorf("Expected ValidateStruct(%q) to be %v, got %v", test.param, test.expected, actual)
 			if err != nil {
@@ -2716,7 +2900,7 @@ func TestLengthStruct(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		actual, err := ValidateStruct(test.param)
+		actual, err := validateStruct(test.param)
 		if actual != test.expected {
 			t.Errorf("Expected ValidateStruct(%q) to be %v, got %v", test.param, test.expected, actual)
 			if err != nil {
@@ -2741,7 +2925,7 @@ func TestStringLengthStruct(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		actual, err := ValidateStruct(test.param)
+		actual, err := validateStruct(test.param)
 		if actual != test.expected {
 			t.Errorf("Expected ValidateStruct(%q) to be %v, got %v", test.param, test.expected, actual)
 			if err != nil {
@@ -2762,7 +2946,7 @@ func TestStringMatchesStruct(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		actual, err := ValidateStruct(test.param)
+		actual, err := validateStruct(test.param)
 		if actual != test.expected {
 			t.Errorf("Expected ValidateStruct(%q) to be %v, got %v", test.param, test.expected, actual)
 			if err != nil {
@@ -2788,7 +2972,7 @@ func TestEmptyRequiredIsInStruct(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		actual, err := ValidateStruct(test.param)
+		actual, err := validateStruct(test.param)
 		if actual != test.expected {
 			t.Errorf("Expected ValidateStruct(%q) to be %v, got %v", test.param, test.expected, actual)
 			if err != nil {
@@ -2814,7 +2998,7 @@ func TestFunkyIsInStruct(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		actual, err := ValidateStruct(test.param)
+		actual, err := validateStruct(test.param)
 		if actual != test.expected {
 			t.Errorf("Expected ValidateStruct(%q) to be %v, got %v", test.param, test.expected, actual)
 			if err != nil {
@@ -2844,7 +3028,7 @@ func TestErrorByField(t *testing.T) {
 		{"AuthorIP", "123 does not validate as ipv4"},
 	}
 	post := &Post{"My123", "duck13126", "123"}
-	_, err := ValidateStruct(post)
+	_, err := validateStruct(post)
 
 	for _, test := range tests {
 		actual := ErrorByField(err, test.param)
@@ -2867,7 +3051,7 @@ func ExampleValidateStruct() {
 		return str == "duck"
 	})
 
-	result, err := ValidateStruct(post)
+	result, err := validateStruct(post)
 	if err != nil {
 		println("error: " + err.Error())
 	}
@@ -2894,12 +3078,12 @@ func TestValidateStructParamValidatorInt(t *testing.T) {
 	test1Ok := &Test1{5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5}
 	test1NotOk := &Test1{11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11}
 
-	_, err := ValidateStruct(test1Ok)
+	_, err := validateStruct(test1Ok)
 	if err != nil {
 		t.Errorf("Test failed: %s", err)
 	}
 
-	_, err = ValidateStruct(test1NotOk)
+	_, err = validateStruct(test1NotOk)
 	if err == nil {
 		t.Errorf("Test failed: nil")
 	}
@@ -2925,17 +3109,17 @@ func TestValidateStructParamValidatorInt(t *testing.T) {
 	test2Ok2 := &Test2{10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10}
 	test2NotOk := &Test2{2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2}
 
-	_, err = ValidateStruct(test2Ok1)
+	_, err = validateStruct(test2Ok1)
 	if err != nil {
 		t.Errorf("Test failed: %s", err)
 	}
 
-	_, err = ValidateStruct(test2Ok2)
+	_, err = validateStruct(test2Ok2)
 	if err != nil {
 		t.Errorf("Test failed: %s", err)
 	}
 
-	_, err = ValidateStruct(test2NotOk)
+	_, err = validateStruct(test2NotOk)
 	if err == nil {
 		t.Errorf("Test failed: nil")
 	}
@@ -2972,7 +3156,7 @@ func TestJSONValidator(t *testing.T) {
 		WithEmptyJSONName string `json:"-" valid:"-,required"`
 	}
 
-	_, err := ValidateStruct(val)
+	_, err := validateStruct(val)
 
 	if err == nil {
 		t.Error("Expected error but got no error")
@@ -3027,4 +3211,15 @@ bQIDAQAB
 			t.Errorf("Expected TestIsRsaPublicKey(%d, %d) to be %v, got %v", i, test.keylen, test.expected, actual)
 		}
 	}
+}
+
+func TestDeleteTagAndMsg(t *testing.T) {
+	tags = tagMap{
+		"optional",
+		"required",
+	}
+	deleteTagAndMsg("required")
+
+	assert.Len(t, tags, 1)
+	assert.Equal(t, tags[0], "optional")
 }
