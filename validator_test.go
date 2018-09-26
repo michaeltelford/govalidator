@@ -2435,6 +2435,8 @@ func TestValidatePointerPasses(t *testing.T) {
 	assert.JSONEq(t, expectedJSON, actualJSON)
 }
 
+// Because a slice is present the first failing struct within the slice is
+// validated and its errors are added to the map at the top level.
 func TestValidateComplexType(t *testing.T) {
 	// Test helper funcs to return pointers of types.
 	i2p := func(i int) *int64 {
@@ -2492,11 +2494,15 @@ func TestValidateComplexType(t *testing.T) {
 
 	jsonBytes, _ := json.Marshal(errs)
 	actualJSON := string(jsonBytes)
-	expectedJSON := `{"errors":{"query":["does not validate as nonemptystring"],"results":{"object_1":{"size":["non zero value required","0 does not validate as range(1|100)"],"title":["does not validate as nonemptystring"]},"object_3":{"size":["802 does not validate as range(1|100)"],"snippet":["The provided snippet does not validate as length(1|50)"]}}}}`
+	expectedJSON := `{"errors":{"query":["does not validate as nonemptystring"],"size":["non zero value required","0 does not validate as range(1|100)"],"title":["does not validate as nonemptystring"]}}`
 
 	assert.Equal(t, expectedJSON, actualJSON)
 }
 
+// Currently we don't support multidimensional slices for validation.
+// This test is here to demonstrate the bahaviour for such types. In a nutshell
+// the first failing struct within the array is validated and its errors are
+// returned.
 func TestValidatesMultiDimentionalSlice(t *testing.T) {
 	type person struct {
 		Name string `valid:"nonemptystring" json:"name"`
@@ -2532,7 +2538,7 @@ func TestValidatesMultiDimentionalSlice(t *testing.T) {
 
 	jsonBytes, _ := json.Marshal(errs)
 	actualJSON := string(jsonBytes)
-	expectedJSON := `{"errors":{"people":{"object_1":{"object_2":{"name":["does not validate as nonemptystring"]}},"object_2":{"object_1":{"name":["does not validate as nonemptystring"]}}}}}`
+	expectedJSON := `{"errors":{"name":["does not validate as nonemptystring"]}}`
 
 	assert.Equal(t, expectedJSON, actualJSON)
 }
