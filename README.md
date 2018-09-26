@@ -10,20 +10,20 @@ This is a fork of https://github.com/asaskevich/govalidator to alter and extend 
 
 New changes since forking the repo:
 
-- The new `Validate()` func returns all validation errors instead of just the first one found. The errors are returned in a `map` for easy processing e.g. JSON marshalling.
-- Added new `valid` tags such as `forbidden` etc.
+- The new `Validate()` func returns all validation errors instead of just the first one found. The errors are returned in a `map` for easy processing e.g. JSON marshalling. When arrays/slices are found, they are traversed until the first invalid element (of type struct) is found and all of its field's errors are returned.
+- Added new `valid` tags such as `forbidden` and `nonemptystring` etc.
 - Totally reworked the `README` to make it easier to use the lib.
 
 ## Installation
 
 Install from the command line with:
 
-    $ go get gopkg.in/michaeltelford/govalidator.v10
+    $ go get gopkg.in/michaeltelford/govalidator.v11
 
 Import into your `*.go` files with:
 
 ```go
-import "gopkg.in/michaeltelford/govalidator.v10"
+import "gopkg.in/michaeltelford/govalidator.v11"
 ```
 
 Then refer to the package as `govalidator`.
@@ -32,7 +32,7 @@ Then refer to the package as `govalidator`.
 
 View the `godocs` at:
 
-https://godoc.org/gopkg.in/michaeltelford/govalidator.v10
+https://godoc.org/gopkg.in/michaeltelford/govalidator.v11
 
 ## Basic Usage
 
@@ -45,7 +45,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"gopkg.in/michaeltelford/govalidator.v10"
+	"gopkg.in/michaeltelford/govalidator.v11"
 )
 
 type User struct {
@@ -216,7 +216,7 @@ Activate behavior to require all fields have a validation tag by default.
 For example:
 
 ```go
-import "gopkg.in/michaeltelford/govalidator.v10"
+import "gopkg.in/michaeltelford/govalidator.v11"
 
 func init() {
   govalidator.SetFieldsRequiredByDefault(true)
@@ -252,7 +252,7 @@ Custom validation using your own domain specific validator tags is also availabl
 ```go
 package main
 
-import "gopkg.in/michaeltelford/govalidator.v10"
+import "gopkg.in/michaeltelford/govalidator.v11"
 
 type CustomByteArray [6]byte // Custom types are supported and can be validated.
 
